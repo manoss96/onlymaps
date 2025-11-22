@@ -183,8 +183,6 @@ Consider for example the following code:
 ```python
 from typing import Any
 
-db: Database
-
 users: list[Any] = db.fetch_many(..., "SELECT name, age FROM users")
 ```
 
@@ -292,7 +290,7 @@ from onlymaps import Bulk
 
 rows = [[1, "a"], [2, "b"], [3, "c"]]
 
-db.exec("INSERT INTO my_table (id, label) VALUES (%s, %s)", Bulk(ids))
+db.exec("INSERT INTO my_table (id, label) VALUES (%s, %s)", Bulk(rows))
 ```
 
 As for how the bulk statement is actually being executed, that depends on the underlying driver being used.
@@ -335,12 +333,12 @@ string with a predefined schema:
 ```python
 from pydantic import BaseModel
 
-class RowModel(BaseModel):
+class JsonColumn(BaseModel):
     id: int
     label: str
     metadata: str | None = None
 
-json_rows: list[RowModel] = db.fetch_many(RowModel, "SELECT json_col FROM my_table")
+json_rows: list[JsonColumn] = db.fetch_many(JsonColumn, "SELECT json_col FROM my_table")
 ```
 
 In general, when querying a single column, the following types are supported:

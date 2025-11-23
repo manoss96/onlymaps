@@ -50,7 +50,7 @@ This chapter explains how to access the `Database` and `AsyncDatabase` APIs.
 Onlymaps exposes a single entrypoint to its sync API, i.e. the function `onlymaps.connect`:
 
 ```python
-from onlymaps.asyncio import connect
+from onlymaps import connect
 
 with connect("postgresql://user:password@localhost:5432/mydb") as db:
     # Execute queries...
@@ -225,7 +225,7 @@ with db.iter(
 
 #### Passing arguments to queries
 
-Any argument that comes after the query is meant to be used as a query parameter:
+Any argument that comes after the query, is meant to be used as a query parameter:
 
 ```python
 row = db.fetch_one(tuple[int, str], "SELECT %s, %s", 1, "Hi!")

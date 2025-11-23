@@ -3,7 +3,7 @@
 
 """
 This module contains the Python Database API v2.0 protocol classes
-on which this package is based, as well as the protocol for the 
+on which this package is based, as well as the protocol for the
 public API this package provides so as to interact with a database.
 """
 
@@ -16,6 +16,7 @@ from typing import Any, Iterator, Protocol, Self, Sequence, TypeVar
 from typing_extensions import overload
 
 from onlymaps._drivers import Driver
+from onlymaps._types import QueryString
 
 T = TypeVar("T")
 
@@ -37,7 +38,7 @@ class PyDbAPIv2Cursor(Protocol):
 
     def execute(  # <async>
         self,
-        operation: str,
+        operation: QueryString,
         params: dict[str, Any] | Sequence[Any] = ...,
         /,
         *args: Any,
@@ -49,7 +50,7 @@ class PyDbAPIv2Cursor(Protocol):
 
     def executemany(  # <async>
         self,
-        operation: str,
+        operation: QueryString,
         params: Sequence[Sequence[Any] | dict[str, Any]],
         /,
         *args: Any,
@@ -150,14 +151,14 @@ class Database(Protocol):
     @overload
     def exec(  # <async>
         self,
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
     ) -> None:
         """
         Executes the given SQL query.
 
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param Any *args: A sequence of positional arguments to be used
             as query parameters.
 
@@ -167,14 +168,14 @@ class Database(Protocol):
     @overload
     def exec(  # <async>
         self,
-        sql: str,
+        sql: QueryString,
         /,
         **kwargs: Any,
     ) -> None:
         """
         Executes the given SQL query.
 
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param Any **kwargs: A sequence of keyword arguments to be used
             as query parameters.
 
@@ -185,7 +186,7 @@ class Database(Protocol):
     def fetch_one_or_none(  # <async>
         self,
         t: type[T],
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
     ) -> T | None:
@@ -205,7 +206,7 @@ class Database(Protocol):
     def fetch_one_or_none(  # <async>
         self,
         t: type[T],
-        sql: str,
+        sql: QueryString,
         /,
         **kwargs: Any,
     ) -> T | None:
@@ -225,7 +226,7 @@ class Database(Protocol):
     def fetch_one_or_none(  # <async>
         self,
         t: EllipsisType,
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
     ) -> Any | None:
@@ -246,7 +247,7 @@ class Database(Protocol):
     def fetch_one_or_none(  # <async>
         self,
         t: EllipsisType,
-        sql: str,
+        sql: QueryString,
         /,
         **kwargs: Any,
     ) -> Any | None:
@@ -267,7 +268,7 @@ class Database(Protocol):
     def fetch_one(  # <async>
         self,
         t: type[T],
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
     ) -> T:
@@ -287,7 +288,7 @@ class Database(Protocol):
     def fetch_one(  # <async>
         self,
         t: type[T],
-        sql: str,
+        sql: QueryString,
         /,
         **kwargs: Any,
     ) -> T:
@@ -307,7 +308,7 @@ class Database(Protocol):
     def fetch_one(  # <async>
         self,
         t: EllipsisType,
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
     ) -> Any:
@@ -328,7 +329,7 @@ class Database(Protocol):
     def fetch_one(  # <async>
         self,
         t: EllipsisType,
-        sql: str,
+        sql: QueryString,
         /,
         **kwargs: Any,
     ) -> Any:
@@ -337,7 +338,7 @@ class Database(Protocol):
 
         :param ellipsis t: Using ellipsis in place of `t` results in
             no type check or type casting occurring.
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param Any **kwargs: A sequence of keyword arguments to be used
             as query parameters.
 
@@ -349,7 +350,7 @@ class Database(Protocol):
     def fetch_many(  # <async>
         self,
         t: type[T],
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
     ) -> list[T]:
@@ -357,7 +358,7 @@ class Database(Protocol):
         Executes the query and returns a a list of row objects of type `T`.
 
         :param `T` t: The type to which the query result is mapped.
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param Any *args: A sequence of positional arguments to be used
             as query parameters.
 
@@ -368,7 +369,7 @@ class Database(Protocol):
     def fetch_many(  # <async>
         self,
         t: type[T],
-        sql: str,
+        sql: QueryString,
         /,
         **kwargs: Any,
     ) -> list[T]:
@@ -376,7 +377,7 @@ class Database(Protocol):
         Executes the query and returns a a list of row objects of type `T`.
 
         :param `T` t: The type to which the query result is mapped.
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param Any **kwargs: A sequence of keyword arguments to be used
             as query parameters.
 
@@ -387,7 +388,7 @@ class Database(Protocol):
     def fetch_many(  # <async>
         self,
         t: EllipsisType,
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
     ) -> list[Any]:
@@ -407,7 +408,7 @@ class Database(Protocol):
     def fetch_many(  # <async>
         self,
         t: EllipsisType,
-        sql: str,
+        sql: QueryString,
         /,
         **kwargs: Any,
     ) -> list[Any]:
@@ -429,7 +430,7 @@ class Database(Protocol):
         self,
         t: type[T],
         size: int,
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
     ) -> Iterator[Iterator[list[T]]]:
@@ -453,7 +454,7 @@ class Database(Protocol):
         self,
         t: type[T],
         size: int,
-        sql: str,
+        sql: QueryString,
         /,
         **kwargs: Any,
     ) -> Iterator[Iterator[list[T]]]:
@@ -477,7 +478,7 @@ class Database(Protocol):
         self,
         t: EllipsisType,
         size: int,
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
     ) -> Iterator[Iterator[list[Any]]]:
@@ -502,7 +503,7 @@ class Database(Protocol):
         self,
         t: EllipsisType,
         size: int,
-        sql: str,
+        sql: QueryString,
         /,
         **kwargs: Any,
     ) -> Iterator[Iterator[list[Any]]]:

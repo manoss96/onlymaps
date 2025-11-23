@@ -19,6 +19,7 @@ from typing import Any, Iterator, Self, TypeVar
 from onlymaps._drivers import BaseDriver, Driver, UnknownDriver
 from onlymaps._query import Query
 from onlymaps._spec import PyDbAPIv2Connection, PyDbAPIv2Cursor
+from onlymaps._types import QueryString
 from onlymaps._utils import (  # <include:co_exec,>
     Error,
     PyDbAPIv2ConnectionFactory,
@@ -253,11 +254,11 @@ class Connection:
 
     @require_open
     @__require_not_iter_same_ctx
-    def exec(self, sql: str, /, *args: Any, **kwargs: Any) -> None:  # <async>
+    def exec(self, sql: QueryString, /, *args: Any, **kwargs: Any) -> None:  # <async>
         """
         Executes the given SQL query.
 
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param tuple[Any, ...] params: A tuple containing positional
             parameters for the query.
         :param dict[str, Any] kwparams: A dictionary containing keyword
@@ -270,7 +271,7 @@ class Connection:
     @require_open
     @__require_not_iter_same_ctx
     def fetch_one_or_none(  # <async>
-        self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
+        self, t: type[T] | EllipsisType, sql: QueryString, /, *args: Any, **kwargs: Any
     ) -> T | Any | None:
         """
         Executes the query and returns a single row object of type `T`,
@@ -291,7 +292,7 @@ class Connection:
     @require_open
     @__require_not_iter_same_ctx
     def fetch_one(  # <async>
-        self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
+        self, t: type[T] | EllipsisType, sql: QueryString, /, *args: Any, **kwargs: Any
     ) -> T | Any:
         """
         Executes the query and returns a single row object of type `T`.
@@ -312,7 +313,7 @@ class Connection:
     @require_open
     @__require_not_iter_same_ctx
     def fetch_many(  # <async>
-        self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
+        self, t: type[T] | EllipsisType, sql: QueryString, /, *args: Any, **kwargs: Any
     ) -> list[T] | list[Any]:
         """
         Executes the query and returns a a list of row objects of type `T`.
@@ -334,7 +335,7 @@ class Connection:
         self,
         t: type[T] | EllipsisType,
         size: int,
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
         **kwargs: Any,
@@ -441,7 +442,6 @@ class Connection:
         # Wait for cursor lock to be released so that all currently
         # executing queries finish execution before closing.
         with self.__cursor_lock:  # <async>
-
             if not self.__is_open:
                 raise Error.DbClosedConnection
 

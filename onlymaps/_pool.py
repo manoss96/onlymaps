@@ -23,6 +23,7 @@ from typing import Any, Iterator, Self, TypeVar
 
 from onlymaps._connection import Connection
 from onlymaps._drivers import BaseDriver, Driver, UnknownDriver
+from onlymaps._types import QueryString
 from onlymaps._utils import (
     Error,
     PyDbAPIv2ConnectionFactory,
@@ -277,11 +278,11 @@ class ConnectionPool:
                     self.__num_currently_checked -= 1
 
     @require_open
-    def exec(self, sql: str, /, *args: Any, **kwargs: Any) -> None:  # <async>
+    def exec(self, sql: QueryString, /, *args: Any, **kwargs: Any) -> None:  # <async>
         """
         Executes the given SQL query.
 
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param tuple[Any, ...] params: A tuple containing positional
             parameters for the query.
         :param dict[str, Any] kwparams: A dictionary containing keyword
@@ -294,7 +295,7 @@ class ConnectionPool:
 
     @require_open
     def fetch_one_or_none(  # <async>
-        self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
+        self, t: type[T] | EllipsisType, sql: QueryString, /, *args: Any, **kwargs: Any
     ) -> T | None:
         """
         Executes the query and returns a single row object of type `T`,
@@ -302,7 +303,7 @@ class ConnectionPool:
 
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param tuple[Any, ...] params: A tuple containing positional
             parameters for the query.
         :param dict[str, Any] kwparams: A dictionary containing keyword
@@ -315,14 +316,14 @@ class ConnectionPool:
 
     @require_open
     def fetch_one(  # <async>
-        self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
+        self, t: type[T] | EllipsisType, sql: QueryString, /, *args: Any, **kwargs: Any
     ) -> T:
         """
         Executes the query and returns a single row object of type `T`.
 
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param tuple[Any, ...] params: A tuple containing positional
             parameters for the query.
         :param dict[str, Any] kwparams: A dictionary containing keyword
@@ -336,14 +337,14 @@ class ConnectionPool:
 
     @require_open
     def fetch_many(  # <async>
-        self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
+        self, t: type[T] | EllipsisType, sql: QueryString, /, *args: Any, **kwargs: Any
     ) -> list[T]:
         """
         Executes the query and returns a a list of row objects of type `T`.
 
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
-        :param str sql: The SQL query to be executed.
+        :param QueryString sql: The SQL query to be executed.
         :param tuple[Any, ...] params: A tuple containing positional
             parameters for the query.
         :param dict[str, Any] kwparams: A dictionary containing keyword
@@ -359,7 +360,7 @@ class ConnectionPool:
         self,
         t: type[T] | EllipsisType,
         size: int,
-        sql: str,
+        sql: QueryString,
         /,
         *args: Any,
         **kwargs: Any,

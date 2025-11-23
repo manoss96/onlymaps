@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 from onlymaps._drivers import BaseDriver
 from onlymaps._spec import PyDbAPIv2Cursor
-from onlymaps._types import STRICT_MODE, is_model_class, is_same_type
+from onlymaps._types import STRICT_MODE, QueryString, is_model_class, is_same_type
 from onlymaps._utils import SafeCursor
 
 # isort: off
@@ -51,7 +51,7 @@ class Query:
 
     def exec(  # <async>
         self,
-        sql: str,
+        sql: QueryString,
         params: tuple[Any, ...],
         kwparams: dict[str, Any],
         /,
@@ -73,7 +73,7 @@ class Query:
     def one_or_none(  # <async>
         self,
         t: type[T] | EllipsisType,
-        sql: str,
+        sql: QueryString,
         params: tuple[Any, ...],
         kwparams: dict[str, Any],
         /,
@@ -99,7 +99,7 @@ class Query:
     def one(  # <async>
         self,
         t: type[T] | EllipsisType,
-        sql: str,
+        sql: QueryString,
         params: tuple[Any, ...],
         kwparams: dict[str, Any],
         /,
@@ -125,7 +125,7 @@ class Query:
     def many(  # <async>
         self,
         t: type[T] | EllipsisType,
-        sql: str,
+        sql: QueryString,
         params: tuple[Any, ...],
         kwparams: dict[str, Any],
         /,
@@ -210,7 +210,7 @@ class Query:
         self,
         t: type[T] | EllipsisType,
         size: int,
-        sql: str,
+        sql: QueryString,
         params: tuple[Any, ...],
         kwparams: dict[str, Any],
         /,
@@ -246,14 +246,12 @@ class Query:
         sql_params, is_bulk = self.__handle_params(params, kwparams, allow_bulk)
 
         with self.__safe_cursor() as cursor:  # <async>
-
             if is_bulk:
                 cursor.executemany(sql, sql_params)  # <await>
             else:
                 cursor.execute(sql, sql_params)  # <await>
 
             if cursor.description and _type is not NoneType:
-
                 adapter, map_to_original = self.__driver.handle_sql_result_type(
                     cast(Hashable, _type)
                 )
@@ -291,7 +289,6 @@ class Query:
                         return deser(obj)
 
                 else:
-
                     colnames = [
                         self.__driver.std_colname(i, col[0])
                         for i, col in enumerate(cursor.description)

@@ -6,6 +6,7 @@ This module contains several custom types used to bypass certain driver restrict
 """
 
 import json
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import Field as DataclassField
 from dataclasses import is_dataclass
@@ -22,6 +23,7 @@ from typing import (
     TypeVarTuple,
     Union,
     Unpack,
+    TypeAlias,
     cast,
     get_args,
     get_origin,
@@ -39,6 +41,15 @@ from pydantic import (
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from pydantic.dataclasses import is_pydantic_dataclass
 from pydantic_core import core_schema, to_jsonable_python
+
+_BaseQueryTypes: TypeAlias = str | bytes
+
+if sys.version_info >= (3, 14):
+    from string.templatelib import Template
+
+    QueryString: TypeAlias = _BaseQueryTypes | Template
+else:
+    QueryString: TypeAlias = _BaseQueryTypes
 
 
 class DataclassInstance(Protocol):  # pylint: disable=too-few-public-methods
@@ -472,7 +483,6 @@ class OnlymapsModel(OnlymapsType[M]):
         mapped_fields: dict[str, Any] = {}
 
         for name, field_info in model_fields.items():
-
             field_type = cast(type, field_info.annotation)
 
             original_fields[name] = (

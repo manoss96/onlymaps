@@ -35,6 +35,7 @@ class Driver(StrEnum):
     MY_SQL = "mysql"
     SQL_SERVER = "mssql"
     MARIA_DB = "mariadb"
+    ORACLE_DB = "oracledb"
     SQL_LITE = "sqlite"
     UNKNOWN = "?"
 
@@ -167,8 +168,8 @@ class BaseDriver(ABC):
 
 class PostgresDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to a PostgreSQL
+    database and is used to handle driver-specific issues.
     """
 
     @property
@@ -202,8 +203,8 @@ class PostgresDriver(BaseDriver):
 
 class MySqlDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to a MySQL
+    database and is used to handle driver-specific issues.
     """
 
     @property
@@ -260,8 +261,8 @@ class MySqlDriver(BaseDriver):
 
 class SqlServerDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to a Microsoft
+    SQL Server database and is used to handle driver-specific issues.
     """
 
     @property
@@ -297,8 +298,8 @@ class SqlServerDriver(BaseDriver):
 
 class MariaDbDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to a MariaDB
+    database and is used to handle driver-specific issues.
     """
 
     @property
@@ -348,10 +349,45 @@ class MariaDbDriver(BaseDriver):
         return colname if colname != "?" else f"c{idx}"
 
 
+class OracleDbDriver(BaseDriver):
+    """
+    This class represents the underlying driver to an Oracle
+    database and is used to handle driver-specific issues.
+    """
+
+    @property
+    def tag(self) -> Driver:
+        """
+        The driver's type.
+        """
+        return Driver.ORACLE_DB
+
+    def _handle_sql_result_type_impl(self, t: type) -> type:
+        """
+        Some SQL query results are returned in different formats by certain
+        drivers. This function handles these cases by using custom type wrappers
+        which are capable of mapping sad results to their original type.
+
+        :param type t: The type that is to be mapped.
+        """
+        return t
+
+    @staticmethod
+    def std_colname(idx: int, colname: str) -> str:
+        """
+        Assigns a unique column name to the provided column
+        name if it was not explicitly set by the user.
+
+        :param int idx: The column's index.
+        :param list[str] colnames: The column name to be fixed.
+        """
+        raise NotImplementedError()
+
+
 class SqlLiteDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to an SQLite
+    database and is used to handle driver-specific issues.
     """
 
     @property
@@ -451,6 +487,8 @@ def driver_factory(
             factory = SqlServerDriver
         case Driver.MARIA_DB:
             factory = MariaDbDriver
+        case Driver.ORACLE_DB:
+            factory = OracleDbDriver
         case Driver.SQL_LITE:
             factory = SqlLiteDriver
         case Driver.UNKNOWN:  # pragma: no cover

@@ -10,7 +10,7 @@ from dataclasses import is_dataclass, make_dataclass
 from datetime import date, datetime
 from enum import IntEnum, StrEnum
 from typing import Any, TypeAlias, Union
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, create_model
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -19,6 +19,7 @@ from pytest import FixtureRequest
 from testcontainers.core.container import DockerContainer
 from testcontainers.mssql import SqlServerContainer
 from testcontainers.mysql import MySqlContainer
+from testcontainers.oracle import OracleDbContainer
 from testcontainers.postgres import PostgresContainer
 
 from onlymaps._drivers import Driver
@@ -37,6 +38,7 @@ DRIVERS = [
     Driver.SQL_SERVER,
     Driver.SQL_LITE,
     Driver.UNKNOWN,
+    Driver.ORACLE_DB,
 ]
 
 
@@ -254,6 +256,7 @@ DbContainer: TypeAlias = (
     | MySqlContainer
     | MariaDbContainer
     | SqlServerContainer
+    | OracleDbContainer
     | SqliteContainer
 )
 
@@ -285,6 +288,8 @@ def conn_str_from_container(container: DbContainer) -> str:
             driver = Driver.MY_SQL
         case MariaDbContainer():
             driver = Driver.MARIA_DB
+        case OracleDbContainer():
+            driver = Driver.ORACLE_DB
         case SqlServerContainer():
             driver = Driver.SQL_SERVER
         case _:  # pragma: no cover
@@ -322,14 +327,24 @@ class SQL:
         """
         Returns a positional placeholder based on the provided driver.
         """
-        return "?" if driver == Driver.SQL_LITE else "%s"
+        match driver:
+            case Driver.ORACLE_DB:
+                return f":{uuid4().hex}"
+            case Driver.SQL_LITE:
+                return "?"
+            case _:
+                return "%s"
 
     @staticmethod
     def _kw_placeholder(driver: Driver) -> str:
         """
         Returns a keyword placeholder based on the provided driver.
         """
-        return ":scalar" if driver == Driver.SQL_LITE else "%(scalar)s"
+        match driver:
+            case Driver.ORACLE_DB | Driver.SQL_LITE:
+                return ":scalar"
+            case _:
+                return "%(scalar)s"
 
     @classmethod
     def SELECT_SINGLE_SCALAR(cls, driver: Driver) -> str:

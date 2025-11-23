@@ -8,6 +8,7 @@ a database via a Docker container.
 
 import gc
 import os
+import re
 import sqlite3
 from time import sleep
 from typing import Iterator
@@ -17,6 +18,7 @@ import pytest
 from pytest import FixtureRequest
 from testcontainers.mssql import SqlServerContainer
 from testcontainers.mysql import MySqlContainer
+from testcontainers.oracle import OracleDbContainer
 from testcontainers.postgres import PostgresContainer
 
 from onlymaps._drivers import Driver
@@ -109,6 +111,35 @@ def sql_server_container() -> Iterator[SqlServerContainer]:
 
 
 @pytest.fixture(scope="session")
+def oracledb_container() -> Iterator[OracleDbContainer]:
+    """
+    A fixture used to set up an OracleDB Docker container.
+    """
+
+    with OracleDbContainer(image="gvenzl/oracle-free:slim") as oracledb:
+        conn_str = oracledb.get_connection_url()
+
+        m = re.fullmatch(
+            r"oracle\+oracledb://(.+):(.+)@.+/\?service_name=(.+)", conn_str
+        )
+        assert m is not None
+
+        username, password, dbname = m.groups()
+
+        oracledb.exec(
+            f"echo '{SQL.CREATE_TEST_TABLE};' | "
+            "sqlplus -s "
+            f"{username}/{password}@localhost:1521/{dbname}"
+        )
+
+        oracledb.username = username
+        oracledb.password = password
+        oracledb.dbname = dbname
+
+        yield oracledb
+
+
+@pytest.fixture(scope="session")
 def sqlite_container() -> Iterator[SqliteContainer]:
     """
     A fixture used to set up a pseudo SQLite container.
@@ -148,6 +179,8 @@ def db_container(request: FixtureRequest) -> DbContainer:
             container = "sql_server_container"
         case Driver.MARIA_DB:
             container = "mariadb_container"
+        case Driver.ORACLE_DB:
+            container = "oracledb_container"
         case Driver.SQL_LITE:
             container = "sqlite_container"
         case _:  # pragma: no cover

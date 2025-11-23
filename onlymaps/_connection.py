@@ -242,7 +242,7 @@ class Connection:
             raise
         finally:
             try:
-                cursor.close()  # <await>
+                cursor.close()  # <replace:await co_exec(cursor.close)>
                 # Commit only if query execution was successful
                 # and not in the middle of a transaction.
                 if is_query_successful and not self.__in_transaction:

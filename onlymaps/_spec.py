@@ -16,7 +16,7 @@ from typing import Any, Iterator, Protocol, Self, Sequence, TypeVar
 from typing_extensions import overload
 
 from onlymaps._drivers import Driver
-from onlymaps._types import QueryString
+from onlymaps._utils import QueryString
 
 T = TypeVar("T")
 

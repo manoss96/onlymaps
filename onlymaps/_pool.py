@@ -23,10 +23,10 @@ from typing import Any, Iterator, Self, TypeVar
 
 from onlymaps._connection import Connection
 from onlymaps._drivers import BaseDriver, Driver, UnknownDriver
-from onlymaps._types import QueryString
 from onlymaps._utils import (
     Error,
     PyDbAPIv2ConnectionFactory,
+    QueryString,
     assert_is_open,
     get_pydbapiv2_conn_factory_and_driver,
     require_open,

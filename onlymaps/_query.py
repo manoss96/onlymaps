@@ -16,8 +16,8 @@ from pydantic import ValidationError
 
 from onlymaps._drivers import BaseDriver
 from onlymaps._spec import PyDbAPIv2Cursor
-from onlymaps._types import STRICT_MODE, QueryString, is_model_class, is_same_type
-from onlymaps._utils import SafeCursor
+from onlymaps._types import STRICT_MODE, is_model_class, is_same_type
+from onlymaps._utils import SafeCursor, QueryString
 
 # isort: off
 from onlymaps._utils import (

@@ -19,10 +19,10 @@ from typing import Any, Iterator, Self, TypeVar
 from onlymaps._drivers import BaseDriver, Driver, UnknownDriver
 from onlymaps._query import Query
 from onlymaps._spec import PyDbAPIv2Connection, PyDbAPIv2Cursor
-from onlymaps._types import QueryString
 from onlymaps._utils import (  # <include:co_exec,>
     Error,
     PyDbAPIv2ConnectionFactory,
+    QueryString,
     assert_is_open,
     get_pydbapiv2_conn_factory_and_driver,
     require,

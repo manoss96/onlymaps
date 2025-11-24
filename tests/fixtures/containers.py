@@ -127,9 +127,15 @@ def oracledb_container() -> Iterator[OracleDbContainer]:
         username, password, dbname = m.groups()
 
         oracledb.exec(
-            f"echo '{SQL.CREATE_TEST_TABLE};' | "
-            "sqlplus -s "
-            f"{username}/{password}@localhost:1521/{dbname}"
+            [
+                "bash",
+                "-c",
+                (
+                    f"echo '{SQL.CREATE_TEST_TABLE};' | "
+                    "sqlplus -s "
+                    f"{username}/{password}@{dbname}"
+                ),
+            ]
         )
 
         oracledb.username = username

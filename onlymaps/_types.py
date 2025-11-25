@@ -107,7 +107,7 @@ class OnlymapsType(ABC, Generic[T]):
         back to their original type.
 
         :param type t: The type to be mapped.
-        :param ((type) -> (type | type)) | None field_type_mapper: A
+        :param `(type) -> type` | None field_type_mapper: A
             field type mapping function used for custom type handling.
         """
 
@@ -119,28 +119,28 @@ class OnlymapsType(ABC, Generic[T]):
 
         adapter = TypeAdapter(t)
 
-        def map_to_original(obj: Any) -> T:
+        def inverse_map(obj: Any) -> T:
             jsonable = to_jsonable_python(obj)
             return adapter.validate_python(jsonable, strict=False)
 
         if t in CLASS_MAP:
-            return CLASS_MAP[t], map_to_original
+            return CLASS_MAP[t], inverse_map
 
         origin: type = get_origin(t) or t
 
         if issubclass(origin, Enum):
-            return OnlymapsEnum.from_enum(origin), map_to_original
+            return OnlymapsEnum.from_enum(origin), inverse_map
 
         args = get_args(t)
 
         if origin is tuple:
-            return OnlymapsTuple.from_args(args, field_type_mapper), map_to_original
+            return OnlymapsTuple.from_args(args, field_type_mapper), inverse_map
         if origin is list:
-            return OnlymapsList.from_args(args, field_type_mapper), map_to_original
+            return OnlymapsList.from_args(args, field_type_mapper), inverse_map
         if origin is set:
-            return OnlymapsSet.from_args(args, field_type_mapper), map_to_original
+            return OnlymapsSet.from_args(args, field_type_mapper), inverse_map
         if origin is dict:
-            return OnlymapsDict.from_args(args, field_type_mapper), map_to_original
+            return OnlymapsDict.from_args(args, field_type_mapper), inverse_map
 
         return t, lambda x: x
 

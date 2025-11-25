@@ -386,9 +386,9 @@ class SQL:
         def build_query() -> str:
             nonlocal idx
             query = "SELECT "
-            for i, field_name in enumerate(RowPydanticModel.model_fields):
-                query += f"{cls._placeholder(driver, idx + i)} AS {field_name},"
-            idx = i + 1
+            for field_name in RowPydanticModel.model_fields:
+                query += f"{cls._placeholder(driver, idx)} AS {field_name},"
+                idx += 1
             return query.removesuffix(",")
 
         query1 = build_query()

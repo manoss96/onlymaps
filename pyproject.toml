@@ -110,7 +110,7 @@ max-args = 10
 max-positional-arguments = 10
 max-attributes = 12
 max-returns = 10
-max-branches = 15
+max-branches = 20
 
 
 [tool.isort]

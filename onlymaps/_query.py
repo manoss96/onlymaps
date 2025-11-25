@@ -254,14 +254,14 @@ class Query:
 
             if cursor.description and _type is not NoneType:
 
-                adapter, map_to_original = self.__driver.handle_sql_result_type(
+                adapter, inverse_map = self.__driver.get_adapter_and_inverse_map(
                     cast(Hashable, _type)
                 )
 
                 def deser(obj: Any) -> T:
                     try:
                         parsed = adapter.validate_python(obj, strict=STRICT_MODE)
-                        return cast(T, map_to_original(parsed))
+                        return cast(T, inverse_map(parsed))
                     except ValidationError as exc:
                         err = exc.errors()[0]
                         err_msg = err["msg"]

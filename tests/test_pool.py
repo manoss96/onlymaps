@@ -194,12 +194,14 @@ class TestConnectionPool:  # <replace:class TestAsyncConnectionPool:>
 
 @pytest.mark.parametrize(
     "small_pool",
-    # NOTE: Do not test on `sql_sever` and `sql_lite` as there is not
-    #       an easy way to implicitly force the DB to close the connection
+    # NOTE: Do not test on certain drivers as there is not
+    #       an easy way to either explicitly or implicitly
+    #       force the DB to close the connection from within
+    #       the same connection.
     [
         driver
         for driver in DRIVERS
-        if driver not in {Driver.SQL_SERVER, Driver.SQL_LITE}
+        if driver not in {Driver.SQL_SERVER, Driver.ORACLE_DB, Driver.SQL_LITE}
     ],
     indirect=True,
 )

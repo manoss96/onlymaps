@@ -323,13 +323,16 @@ class SQL:
     CREATE_TEST_TABLE = f"CREATE TABLE {TEST_TABLE} (id INT PRIMARY KEY)"
 
     @staticmethod
-    def _placeholder(driver: Driver) -> str:
+    def _placeholder(driver: Driver, n: int | None = None) -> str:
         """
         Returns a positional placeholder based on the provided driver.
+
+        :param int | None n: An integer that, if provided, is used in
+            the Oracle DB placeholder.
         """
         match driver:
             case Driver.ORACLE_DB:
-                return f":{uuid4().hex}"
+                return f":{n if n is not None else 0}"
             case Driver.SQL_LITE:
                 return "?"
             case _:
@@ -359,10 +362,9 @@ class SQL:
         """
         Query to select a single row with column names.
         """
-        placeholder = cls._placeholder(driver)
         query = "SELECT "
-        for field_name in RowPydanticModel.model_fields:
-            query += f"{placeholder} AS {field_name},"
+        for i, field_name in enumerate(RowPydanticModel.model_fields):
+            query += f"{cls._placeholder(driver, i)} AS {field_name},"
         return query.removesuffix(",")
 
     @classmethod
@@ -378,12 +380,21 @@ class SQL:
         """
         Query to select multiple rows with column names.
         """
-        placeholder = cls._placeholder(driver)
-        query = "SELECT "
-        for field_name in RowPydanticModel.model_fields:
-            query += f"{placeholder} AS {field_name},"
-        query = query.removesuffix(",")
-        return f"{query} UNION ALL {query}"
+
+        idx = 0
+
+        def build_query() -> str:
+            nonlocal idx
+            query = "SELECT "
+            for i, field_name in enumerate(RowPydanticModel.model_fields):
+                query += f"{cls._placeholder(driver, idx + i)} AS {field_name},"
+            idx = i + 1
+            return query.removesuffix(",")
+
+        query1 = build_query()
+        query2 = build_query()
+
+        return f"{query1} UNION ALL {query2}"
 
     @classmethod
     def SELECT_SINGLE_ROW_WITH_INT_COL_NAMES(
@@ -393,10 +404,9 @@ class SQL:
         Query to select a single row with column names
         following the `cN` pattern.
         """
-        placeholder = cls._placeholder(driver)
         query = "SELECT "
         for i in range(num_placeholders):
-            query += f"{placeholder} AS c{i},"
+            query += f"{cls._placeholder(driver, i)} AS c{i},"
         return query.removesuffix(",")
 
     @classmethod
@@ -424,8 +434,7 @@ class SQL:
         """
         Query to select many rows from the test table.
         """
-        placeholder = cls._placeholder(driver)
-        template = ",".join(placeholder for _ in range(num_elements))
+        template = ",".join(cls._placeholder(driver, i) for i in range(num_elements))
         return f"SELECT id FROM {cls.TEST_TABLE} WHERE id IN ({template})"
 
     @classmethod

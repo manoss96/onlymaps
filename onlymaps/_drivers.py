@@ -381,7 +381,10 @@ class OracleDbDriver(BaseDriver):
         :param int idx: The column's index.
         :param list[str] colnames: The column name to be fixed.
         """
-        raise NotImplementedError()
+        # NOTE: Due to OracleDB driver returning the expression itself
+        #       as the column name if one was not provided, there is
+        #       no way to know whether a name was provided or not.
+        return colname
 
 
 class SqlLiteDriver(BaseDriver):

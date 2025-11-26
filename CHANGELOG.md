@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
-- Bug that caused an exception to be raised when the type provided to the `fetch`/`iter` methods was a Pydantic model with an `Optional` field. [#6]
+- Bug that caused an exception to be raised when the type provided to the `fetch`/`iter` methods was a model type with an `Optional` field. [#6]
       
 
 

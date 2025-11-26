@@ -20,6 +20,7 @@ from typing import (
     Callable,
     ClassVar,
     Generic,
+    Literal,
     Protocol,
     TypeVar,
     TypeVarTuple,
@@ -204,6 +205,10 @@ class OnlymapsType(ABC, Generic[T]):
         :param `(type) -> type` | None field_type_mapper: A type mapping
             function that is forwarded to `OnlymapsType.factory`.
         """
+
+        # No need to map `Literal` args as they are not types.
+        if t is Literal:
+            return t[*args]  # type: ignore
 
         arg_gen = (OnlymapsType.factory(arg, field_type_mapper)[0] for arg in args)
 

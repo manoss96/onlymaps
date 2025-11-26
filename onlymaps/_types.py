@@ -6,18 +6,21 @@ This module contains several custom types used to bypass certain driver restrict
 """
 
 import json
+import operator
 from abc import ABC, abstractmethod
 from dataclasses import Field as DataclassField
 from dataclasses import is_dataclass
 from datetime import date, datetime
 from enum import Enum
+from functools import reduce
+from inspect import isclass
+from types import UnionType
 from typing import (
     Any,
     Callable,
     ClassVar,
     Generic,
     Protocol,
-    Self,
     TypeVar,
     TypeVarTuple,
     Union,
@@ -128,10 +131,11 @@ class OnlymapsType(ABC, Generic[T]):
 
         origin: type = get_origin(t) or t
 
-        if issubclass(origin, Enum):
+        if isclass(origin) and issubclass(origin, Enum):
             return OnlymapsEnum.from_enum(origin), map_to_original
 
-        args = get_args(t)
+        if args := get_args(t):
+            t = cls._parametrize(origin, args, field_type_mapper)
 
         if origin is tuple:
             return OnlymapsTuple.from_args(args, field_type_mapper), map_to_original
@@ -184,22 +188,29 @@ class OnlymapsType(ABC, Generic[T]):
 
         return core_schema.no_info_before_validator_function(parse, base_schema)
 
-    @classmethod
+    @staticmethod
     def _parametrize(
-        cls,
+        t: type,
         args: tuple[Any, ...],
         field_type_mapper: Callable[[type], type] | None,
-    ) -> type[Self]:
+    ) -> type:
         """
-        Parametrizes the class with each one of the provided arguments
+        Parametrizes type `t` with each one of the provided arguments
         after feeding them through the `OnlymapsType.factory` function.
 
+        :param type t: The type that is to be parametrized.
         :param tuple[Any, ...] args: A tuple containing the arguments used
             for the parametrization.
         :param `(type) -> type` | None field_type_mapper: A type mapping
             function that is forwarded to `OnlymapsType.factory`.
         """
-        return cls[*(cls.factory(arg, field_type_mapper)[0] for arg in args)]  # type: ignore
+
+        arg_gen = (OnlymapsType.factory(arg, field_type_mapper)[0] for arg in args)
+
+        if t is UnionType:
+            return reduce(operator.or_, arg_gen)
+
+        return t[*arg_gen]  # type: ignore
 
     @classmethod
     @abstractmethod
@@ -341,7 +352,7 @@ class OnlymapsList(OnlymapsType[list[A]]):
         """
         if args:
             assert len(args) == 1
-            return cls._parametrize(args, field_type_mapper)
+            return cls._parametrize(cls, args, field_type_mapper)
         return OnlymapsList[Any]
 
 
@@ -367,7 +378,7 @@ class OnlymapsTuple(OnlymapsType[tuple[Unpack[TArgs]]], Generic[Unpack[TArgs]]):
         correspondingly parametrized `OnlymapsTuple` type.
         """
         if args:
-            return cls._parametrize(args, field_type_mapper)
+            return cls._parametrize(cls, args, field_type_mapper)
         return OnlymapsTuple[Any, ...]  # type: ignore
 
 
@@ -396,7 +407,7 @@ class OnlymapsSet(OnlymapsType[set[A]]):
         """
         if args:
             assert len(args) == 1
-            return cls._parametrize(args, field_type_mapper)
+            return cls._parametrize(cls, args, field_type_mapper)
         return OnlymapsSet[Any]
 
 
@@ -421,7 +432,7 @@ class OnlymapsDict(OnlymapsType[dict[K, V]]):
         """
         if args:
             assert len(args) == 2
-            return cls._parametrize(args, field_type_mapper)
+            return cls._parametrize(cls, args, field_type_mapper)
         return OnlymapsDict[str, Any]
 
 

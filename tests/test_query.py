@@ -10,10 +10,11 @@ import json
 import sys
 import typing
 from datetime import date, datetime
-from typing import Any
-from uuid import UUID
+from typing import Any, Literal, Optional, Union
+from uuid import UUID, uuid4
 
 import pytest
+from pydantic import BaseModel
 
 from onlymaps._drivers import Driver
 from onlymaps._params import Bulk, Json
@@ -366,3 +367,60 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
             db.exec( # <await>
                 "SELECT 1", bulk, param=1
             )  #  type: ignore
+
+    def test_query_on_complex_model_type(self, db: Database) -> None:  # <async>
+        """
+        Tests querying on a rather complex pydatic model.
+        """
+
+        class ComplexModel(BaseModel):
+            """
+            A compex pydantic model.
+            """
+
+            class NestedModel(BaseModel):
+                """
+                A nested pydantic model.
+                """
+
+                id: UUID
+                created_at: datetime
+                data: list[str]
+
+            id: int
+            label: str
+            type_a: Literal[1, 2, 3]
+            type_b: int | None
+            type_c: Optional[str]
+            type_d: Union[int, bool]
+            metadata: NestedModel
+
+        model = ComplexModel(
+            id=0,
+            label="label",
+            type_a=2,
+            type_b=None,
+            type_c="c",
+            type_d=2,
+            metadata=ComplexModel.NestedModel(
+                id=uuid4(),
+                created_at=datetime(1970, 1, 1, 1, 1, 1, 1),
+                data=["Hello", "World!"],
+            ),
+        )
+
+        assert (
+            db.fetch_one(  # <await>
+                ComplexModel,
+                f"""SELECT
+                    {model.id} AS id,
+                    '{model.label}' AS label,
+                    {model.type_a} AS type_a,
+                    NULL AS type_b,
+                    '{model.type_c}' AS type_c,
+                    {model.type_d} AS type_d,
+                    '{model.metadata.model_dump_json()}' AS metadata
+                """,
+            )
+            == model
+        )

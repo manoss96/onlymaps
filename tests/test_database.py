@@ -7,6 +7,7 @@ This module contains tests related to the `Database` interface.
 
 from functools import partial
 from threading import Lock  # <replace:from asyncio import Lock>
+from time import sleep  # <replace:from asyncio import sleep>
 from typing import Any, Callable, ContextManager, Iterator
 
 import pytest
@@ -291,6 +292,10 @@ class TestDatabase:  # <replace:class TestAsyncDatabase:>
             # locking, not MVCC, therefore the query should fail
             # instead due to the lock held on the table.
             if db.driver == Driver.SQL_SERVER:
+                # NOTE: Sleep for a little bit to ensure the database
+                #       has locked the table, as sometimes not waiting
+                #       might cause this test to fail.
+                sleep(0.5)  # <await>
                 with pytest.raises(Exception):
                     connection_B.fetch_one_or_none(  # <await>
                         int, SQL.SELECT_FROM_TEST_TABLE(db.driver), uid

@@ -103,7 +103,7 @@ The `{DB_TYPE}` placeholder can take any of the following values depending on th
 - `mysql`: MySQL
 - `mssql`: Microsoft SQL Server
 - `mariadb`: MariaDB
-- `sqlite`: SQLite. More specifically, when connecting to a SQLite database, your connection string must be formatted as such: `sqlite:///${DB_NAME}`.
+- `sqlite`: SQLite. More specifically, when connecting to a SQLite database, your connection string must be formatted as such: `sqlite:///{DB_NAME}`.
 
 #### Using unsupported drivers
 
@@ -365,7 +365,7 @@ In general, when querying a single column, the following types are supported:
 
 Things are a bit different when querying multiple columns, as the type you must use
 should always be some sorts of struct type which is able to contain more than one
-type of data:
+types of data:
 
 ```python
 ids: list[tuple] = db.fetch_many(tuple, "SELECT id, label FROM my_table")
@@ -384,7 +384,7 @@ The complete list of types supported when querying multiple columns is as follow
 This  above list of struct types can be further separated into two distinct categories:
 
 - Container types: `tuple`, `list`, `set`.
-- Model types: `dict`, `dataclasses.dataclass`, `pydantic.dataclasses.dataclass`, `pydanticBaseModel`
+- Model types: `dict`, `dataclasses.dataclass`, `pydantic.dataclasses.dataclass`, `pydantic.BaseModel`
 
 When using a container type, you lose all information regarding the column names.
 If you wish to retain that, you should use a model type:

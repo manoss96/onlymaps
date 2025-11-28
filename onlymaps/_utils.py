@@ -9,6 +9,7 @@ type aliases, and helper objects.
 import inspect
 import re
 import sqlite3
+import sys
 from functools import partial
 from importlib import import_module
 from types import ModuleType
@@ -21,6 +22,7 @@ from typing import (
     Callable,
     ContextManager,
     Never,
+    TypeAlias,
     TypeVar,
     Union,
     cast,
@@ -35,7 +37,6 @@ from onlymaps._spec import (
 )
 
 if TYPE_CHECKING:
-
     import aiomysql
     import aiosqlite
     import mariadb
@@ -49,6 +50,9 @@ if TYPE_CHECKING:
         AsyncPyDbAPIv2Cursor,
         AsyncPyDbAPIv2Module,
     )
+
+# may add future types such as templates later
+QueryString: TypeAlias = str
 
 ConnInfo = tuple[Driver, str, int, str, str, str | None]
 
@@ -135,7 +139,6 @@ def require(assertion: Callable[[D], None | Awaitable[None]]) -> Callable[[C], C
     """
 
     def decorator(fn: C) -> C:
-
         def sync_wrapper(db: D, /, *args: Any, **kwargs: Any) -> Any:
             assertion(db)
             return fn(db, *args, **kwargs)
@@ -178,7 +181,6 @@ def decompose_conn_str(conn_str: str) -> ConnInfo:
     :raises ValueError: The connection string is not valid.
     """
     if m := _RE_CONN_STR.match(conn_str):
-
         sqlite_db, driver, user, password, host, port, db = m.groups()
 
         if sqlite_db:
@@ -261,7 +263,6 @@ def get_pydbapiv2_conn_factory_and_driver(
 
     match driver:
         case Driver.POSTGRES:
-
             if TYPE_CHECKING:
                 module = psycopg
             else:
@@ -278,7 +279,6 @@ def get_pydbapiv2_conn_factory_and_driver(
             }
 
         case Driver.MY_SQL:
-
             if TYPE_CHECKING:
                 module = pymysql
             else:
@@ -300,7 +300,6 @@ def get_pydbapiv2_conn_factory_and_driver(
             }
 
         case Driver.SQL_SERVER:
-
             if TYPE_CHECKING:
                 # Cast to `PyDbAPIv2Module` due to the fact that method
                 # `pymssql.Cursor.executemany` has its `params` argument
@@ -325,7 +324,6 @@ def get_pydbapiv2_conn_factory_and_driver(
             }
 
         case Driver.MARIA_DB:
-
             if TYPE_CHECKING:
                 module = mariadb
             else:
@@ -342,7 +340,6 @@ def get_pydbapiv2_conn_factory_and_driver(
             }
 
         case Driver.SQL_LITE:
-
             if TYPE_CHECKING:
                 module = sqlite3
             else:
@@ -406,7 +403,6 @@ def get_async_pydbapiv2_conn_factory_and_driver(
 
     match driver:
         case Driver.POSTGRES:
-
             if TYPE_CHECKING:
                 _psycopg = psycopg
             else:
@@ -426,7 +422,6 @@ def get_async_pydbapiv2_conn_factory_and_driver(
             }
 
         case Driver.MY_SQL | Driver.MARIA_DB:
-
             if TYPE_CHECKING:
                 module = aiomysql
                 _pymysql = pymysql
@@ -458,7 +453,6 @@ def get_async_pydbapiv2_conn_factory_and_driver(
             )
 
         case Driver.SQL_LITE:
-
             if TYPE_CHECKING:
                 _aiosqlite = aiosqlite
             else:

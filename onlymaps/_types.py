@@ -488,7 +488,6 @@ class OnlymapsModel(OnlymapsType[M]):
         mapped_fields: dict[str, Any] = {}
 
         for name, field_info in model_fields.items():
-
             field_type = cast(type, field_info.annotation)
 
             original_fields[name] = (

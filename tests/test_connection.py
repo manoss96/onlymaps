@@ -113,15 +113,18 @@ class TestConnection:  # <replace:class TestAsyncConnection:>
         ctx = getattr(connection, ctx_method)
         blocked = getattr(connection, blocked_method)
 
-        result: int
+        result: int = 0
         continue_flag: bool = False
 
         def open_transaction_or_iter() -> None:  # <async>
             nonlocal continue_flag, result
-            with ctx(*ctx_args) as _:  # <async>
+            try:
+                with ctx(*ctx_args) as _:  # <async>
+                    continue_flag = True
+                    sleep(1)  # <await>
+                    result += 1
+            finally:
                 continue_flag = True
-                sleep(1)  # <await>
-                result = 1
 
         def run_query() -> None:  # <async>
             nonlocal continue_flag, result
@@ -135,7 +138,7 @@ class TestConnection:  # <replace:class TestAsyncConnection:>
             else:
                 blocked(*blocked_args)  # <await>
 
-            result = 2
+            result += 1
 
         executor.submit(open_transaction_or_iter)
         executor.submit(run_query)

@@ -135,8 +135,7 @@ class OnlymapsType(ABC, Generic[T]):
         if isclass(origin) and issubclass(origin, Enum):
             return OnlymapsEnum.from_enum(origin), inverse_map
 
-        if args := get_args(t):
-            t = cls._parametrize(origin, args, field_type_mapper)
+        args = get_args(t)
 
         if origin is tuple:
             return OnlymapsTuple.from_args(args, field_type_mapper), inverse_map
@@ -146,6 +145,9 @@ class OnlymapsType(ABC, Generic[T]):
             return OnlymapsSet.from_args(args, field_type_mapper), inverse_map
         if origin is dict:
             return OnlymapsDict.from_args(args, field_type_mapper), inverse_map
+
+        if args:
+            t = cls._parametrize(origin, args, field_type_mapper)
 
         return t, lambda x: x
 

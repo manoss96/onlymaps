@@ -6,7 +6,7 @@
 ![OnlyMaps Logo](docs/source/onlymaps.png)
 
 
-Onlymaps is a Python micro-ORM library that enables you to interact with a database
+Onlymaps is a Python micro-ORM library that lets you interact with a database
 through plain SQL queries while it takes care of mapping the results back to Python
 objects. More specifically, it provides:
 

@@ -393,7 +393,7 @@ If you wish to retain that, you should use a model type:
 ```python
 rows: list[dict] = db.fetch_many(dict, "SELECT id, label FROM my_table")
 
-print(rows.keys()) # This prints `dict_keys(['id', 'label'])`.
+print(rows[0].keys()) # This prints `dict_keys(['id', 'label'])`.
 ```
 
 You can use whichever suits you best, as both container types and

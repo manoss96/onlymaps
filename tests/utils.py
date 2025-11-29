@@ -323,7 +323,7 @@ class SQL:
     CREATE_TEST_TABLE = f"CREATE TABLE {TEST_TABLE} (id INT PRIMARY KEY)"
 
     @staticmethod
-    def _placeholder(driver: Driver, n: int | None = None) -> str:
+    def placeholder(driver: Driver, n: int | None = None) -> str:
         """
         Returns a positional placeholder based on the provided driver.
 
@@ -339,22 +339,22 @@ class SQL:
                 return "%s"
 
     @staticmethod
-    def _kw_placeholder(driver: Driver) -> str:
+    def kw_placeholder(driver: Driver, n: int | None = None) -> str:
         """
         Returns a keyword placeholder based on the provided driver.
         """
         match driver:
             case Driver.ORACLE_DB | Driver.SQL_LITE:
-                return ":scalar"
+                return f":scalar{n if n is not None else ''}"
             case _:
-                return "%(scalar)s"
+                return f"%(scalar{n if n is not None else ''})s"
 
     @classmethod
     def SELECT_SINGLE_SCALAR(cls, driver: Driver) -> str:
         """
         Query to select a single scalar.
         """
-        placeholder = cls._placeholder(driver)
+        placeholder = cls.placeholder(driver)
         return f"SELECT {placeholder}"
 
     @classmethod
@@ -364,7 +364,7 @@ class SQL:
         """
         query = "SELECT "
         for i, field_name in enumerate(RowPydanticModel.model_fields):
-            query += f"{cls._placeholder(driver, i)} AS {field_name},"
+            query += f"{cls.placeholder(driver, i)} AS {field_name},"
         return query.removesuffix(",")
 
     @classmethod
@@ -372,7 +372,7 @@ class SQL:
         """
         Query to select multiple scalars.
         """
-        placeholder = cls._kw_placeholder(driver)
+        placeholder = cls.kw_placeholder(driver)
         return f"SELECT {placeholder} UNION ALL SELECT {placeholder}"
 
     @classmethod
@@ -387,7 +387,7 @@ class SQL:
             nonlocal idx
             query = "SELECT "
             for field_name in RowPydanticModel.model_fields:
-                query += f"{cls._placeholder(driver, idx)} AS {field_name},"
+                query += f"{cls.placeholder(driver, idx)} AS {field_name},"
                 idx += 1
             return query.removesuffix(",")
 
@@ -406,7 +406,7 @@ class SQL:
         """
         query = "SELECT "
         for i in range(num_placeholders):
-            query += f"{cls._placeholder(driver, i)} AS c{i},"
+            query += f"{cls.placeholder(driver, i)} AS c{i},"
         return query.removesuffix(",")
 
     @classmethod
@@ -414,7 +414,7 @@ class SQL:
         """
         Query to insert row into the test table.
         """
-        placeholder = cls._placeholder(driver)
+        placeholder = cls.placeholder(driver)
         query = f"INSERT INTO {cls.TEST_TABLE} VALUES ({placeholder})"
         if returning_id:
             assert driver == Driver.POSTGRES
@@ -426,7 +426,7 @@ class SQL:
         """
         Query to select one row from the test table.
         """
-        placeholder = cls._placeholder(driver)
+        placeholder = cls.placeholder(driver)
         return f"SELECT id FROM {cls.TEST_TABLE} WHERE id = {placeholder}"
 
     @classmethod
@@ -434,7 +434,7 @@ class SQL:
         """
         Query to select many rows from the test table.
         """
-        template = ",".join(cls._placeholder(driver, i) for i in range(num_elements))
+        template = ",".join(cls.placeholder(driver, i) for i in range(num_elements))
         return f"SELECT id FROM {cls.TEST_TABLE} WHERE id IN ({template})"
 
     @classmethod

@@ -181,10 +181,14 @@ class Query:
             nonlocal is_bulk
             match param:
                 case Bulk():
+
                     if not allow_bulk:
                         raise ValueError("Use method `exec` for bulk statements.")
+
                     is_bulk = True
-                    return param.value
+
+                    return param.get_mapped_value(self.__driver.handle_sql_param)
+
                 case _ if is_bulk:
                     raise ValueError(
                         "Cannot provide additional parameters in `_bulk` mode."

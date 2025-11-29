@@ -1,3 +1,10 @@
+# Copyright (c) 2025 Manos Stoumpos
+# Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
+"""
+This is a stub file for `__init__.py`.
+"""
+
 from typing import Any, Literal, overload
 
 from onlymaps._params import Bulk, Json

@@ -376,7 +376,9 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
             Bulk(params),
         )
 
-    def test_query_on_complex_bulk_with_mapping_args(self, db: Database) -> None:  # <async>
+    def test_query_on_complex_bulk_with_mapping_args(  # <async>
+        self, db: Database
+    ) -> None:
         """
         Tests whether arguments are properly handled when wrapped
         within a `Bulk` argument containing mapping arguments.

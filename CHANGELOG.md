@@ -15,7 +15,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - Bug that resulted in query parameters not being properly handled when wrapped within
-  `Bulk`. [#7]
+  `Bulk`. [#8]
 
 
 ## 0.1.1 [2025-11-26]
@@ -28,4 +28,4 @@ All notable changes to this project are documented in this file.
 
 [#5]: https://github.com/manoss96/onlymaps/pull/5
 [#6]: https://github.com/manoss96/onlymaps/pull/6
-[#7]: https://github.com/manoss96/onlymaps/pull/7
+[#8]: https://github.com/manoss96/onlymaps/pull/8

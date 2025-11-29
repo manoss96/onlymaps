@@ -339,15 +339,15 @@ class SQL:
                 return "%s"
 
     @staticmethod
-    def kw_placeholder(driver: Driver) -> str:
+    def kw_placeholder(driver: Driver, n: int | None = None) -> str:
         """
         Returns a keyword placeholder based on the provided driver.
         """
         match driver:
             case Driver.ORACLE_DB | Driver.SQL_LITE:
-                return ":scalar"
+                return f":scalar{n if n is not None else ''}"
             case _:
-                return "%(scalar)s"
+                return f"%(scalar{n if n is not None else ''})s"
 
     @classmethod
     def SELECT_SINGLE_SCALAR(cls, driver: Driver) -> str:

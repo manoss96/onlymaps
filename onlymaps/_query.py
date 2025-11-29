@@ -181,33 +181,13 @@ class Query:
             nonlocal is_bulk
             match param:
                 case Bulk():
+
                     if not allow_bulk:
                         raise ValueError("Use method `exec` for bulk statements.")
+
                     is_bulk = True
 
-                    bulk_type = type(param.value)
-
-                    if issubclass(bulk_type, (list, tuple, set)):
-
-                        def handle_seq_or_map_param(p: Any) -> Any:
-                            match p:
-                                case dict():
-                                    return {
-                                        key: self.__driver.handle_sql_param(val)
-                                        for key, val in p.items()
-                                    }
-                                case list() | tuple() | set():
-                                    return type(p)(
-                                        self.__driver.handle_sql_param(val) for val in p
-                                    )
-                                case _:
-                                    return p
-
-                        return bulk_type(
-                            handle_seq_or_map_param(p) for p in param.value
-                        )
-
-                    return param.value
+                    return param.get_mapped_value(self.__driver.handle_sql_param)
 
                 case _ if is_bulk:
                     raise ValueError(

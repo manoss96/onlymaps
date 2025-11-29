@@ -6,7 +6,7 @@ This module contains SQL parameter wrapper classes.
 """
 
 from abc import ABC
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from pydantic import BaseModel
 
@@ -47,6 +47,32 @@ class Bulk(_ParamWrapper):
         :param Any obj: The object parameter to be wrapped.
         """
         super().__init__(obj)
+
+    def get_mapped_value(self, arg_map_fn: Callable[[Any], Any]) -> Any:
+        """
+        Returns this `Bulk` instance's underlying value after having
+        each of its items go through the provided mapping function.
+
+        :param `(Any) -> Any` arg_map_fn: An argument mapping function.
+
+        """
+
+        bulk_type = type(self.value)
+
+        if issubclass(bulk_type, (list, tuple, set)):
+
+            def handle_seq_or_map_param(p: Any) -> Any:
+                match p:
+                    case dict():
+                        return {key: arg_map_fn(val) for key, val in p.items()}
+                    case list() | tuple() | set():
+                        return type(p)(arg_map_fn(val) for val in p)
+                    case _:
+                        return p
+
+            return bulk_type(handle_seq_or_map_param(p) for p in self.value)
+
+        return self.value
 
 
 class Json(_ParamWrapper):

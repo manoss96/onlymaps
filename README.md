@@ -255,7 +255,7 @@ you should use, you can take a look at the documentation of the driver you are u
 
 #### Query parameter wrappers
 
-Onlymaps does some parameter handling by default when it makes sense to do so. To give an example, `UUID` and `pydantic.BaseModel` type instances are always converted into strings when provided as query parameters, as this is the only type conversion that makes sense in this context. However, there exist certain cases where it is not so obvious how a parameter is meant to be used. Consider the following example:
+Onlymaps does some parameter handling by default when it makes sense to do so. To give an example, `uuid.UUID` and `pydantic.BaseModel` type instances are always converted into strings when provided as query parameters, as this is the only type conversion that makes sense in this context. However, there exist certain cases where it is not so obvious how a parameter is meant to be used. Consider the following example:
 
 ```python
 ids = [1, 2, 3, 4, 5]

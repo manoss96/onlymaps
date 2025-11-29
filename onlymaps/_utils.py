@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     import aiomysql
     import aiosqlite
     import mariadb
+    import oracledb
     import psycopg
     import pymssql
     import pymysql
@@ -341,6 +342,27 @@ def get_pydbapiv2_conn_factory_and_driver(
                 "autocommit": False,
             }
 
+        case Driver.ORACLE_DB:
+
+            if TYPE_CHECKING:
+                module = oracledb
+            else:
+                module = try_import_module("oracledb")
+
+            if "tcp_connect_timeout" in kwargs:
+                raise ValueError(
+                    "Please use argument `connect_timeout` instead of `tcp_connect_timeout`."
+                )
+
+            kwargs |= {
+                "host": host,
+                "port": port,
+                "service_name": database,
+                "user": user,
+                "password": password,
+                "tcp_connect_timeout": connect_timeout,
+            }
+
         case Driver.SQL_LITE:
 
             if TYPE_CHECKING:
@@ -402,7 +424,7 @@ def get_async_pydbapiv2_conn_factory_and_driver(
 
     (driver, host, port, database, user, password) = decompose_conn_str(conn_str)
 
-    module: "AsyncPyDbAPIv2Module"  # type: ignore
+    module: "AsyncPyDbAPIv2Module"
 
     match driver:
         case Driver.POSTGRES:
@@ -450,6 +472,30 @@ def get_async_pydbapiv2_conn_factory_and_driver(
                 "connect_timeout": connect_timeout,
                 "use_unicode": use_unicode,
                 "autocommit": False,
+            }
+
+        case Driver.ORACLE_DB:
+
+            if TYPE_CHECKING:
+                _oracledb = oracledb
+            else:
+                _oracledb = try_import_module("oracledb")
+
+            if "tcp_connect_timeout" in kwargs:
+                raise ValueError(
+                    "Please use argument `connect_timeout` instead of `tcp_connect_timeout`."
+                )
+
+            setattr(_oracledb, "connect", _oracledb.connect_async)
+            module = cast("AsyncPyDbAPIv2Module", _oracledb)
+
+            kwargs |= {
+                "host": host,
+                "port": port,
+                "service_name": database,
+                "user": user,
+                "password": password,
+                "tcp_connect_timeout": connect_timeout,
             }
 
         case Driver.SQL_SERVER:

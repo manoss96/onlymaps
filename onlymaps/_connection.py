@@ -61,6 +61,7 @@ class Connection:
         self.__driver = driver if driver else UnknownDriver.create()
         self.__handle_broken_conn = handle_broken_conn
         self.__cursor_lock = Lock()
+        self.__open_lock = Lock()
         self.__iter_lock = Lock()
         self.__is_open = False
         self.__iteration_id: int | None = None
@@ -200,56 +201,56 @@ class Connection:
         if acquire_lock:
             self.__cursor_lock.acquire()  # <await>
 
-        if self.__handle_broken_conn and not self.__in_transaction:
-            try:
-                # Both obtain a cursor and ping the database by
-                # executing a no-result query to ensure that the
-                # connection has not been closed.
-                # fmt: off
-                cursor = (
-                    self.__conn.cursor()  # <replace:await co_exec(self.__conn.cursor)>
-                )
-                # fmt: on
-                cursor.execute("SELECT 1 WHERE FALSE")  # <await>
-            except:  # pylint: disable=bare-except
+        try:
+            # This block ensures a connection is not closed/broken,
+            # and if it is, attempts to open a new connection.
+            if self.__handle_broken_conn and not self.__in_transaction:
                 try:
-                    # The connection is likely to be already closed
-                    # at this point, though an attempt to close it
-                    # doesn't hurt!
-                    self.__conn.close()  # <replace:await co_exec(self.__conn.close)>
+                    # Both obtain a cursor and ping the database by
+                    # executing a no-result query to ensure that the
+                    # connection has not been closed.
+                    # fmt: off
+                    cursor = (
+                        self.__conn.cursor()  # <replace:await co_exec(self.__conn.cursor)>
+                    )
+                    # fmt: on
+                    cursor.execute("SELECT 1 WHERE FALSE")  # <await>
                 except:  # pylint: disable=bare-except
-                    pass
-                self.__conn = self.__conn_factory()  # <await>
-                # fmt: off
-                cursor = (
-                    self.__conn.cursor()  # <replace:await co_exec(self.__conn.cursor)>
-                )
-                # fmt: on
-        else:
+                    try:
+                        # The connection is likely to be already closed
+                        # at this point, though an attempt to close it
+                        # doesn't hurt!
+                        self.__is_open = False
+                        self.__conn.close()  # <replace:await co_exec(self.__conn.close)>
+                    except:  # pylint: disable=bare-except
+                        pass
+                    finally:
+                        # Re-open connection.
+                        self.open()  # <await>
+
             # fmt: off
             cursor = (
                 self.__conn.cursor() # <replace:await co_exec(self.__conn.cursor)>
             )
             # fmt: on
 
-        try:
-            yield cursor
-            is_query_successful = True
-        except:
-            is_query_successful = False
-            if not self.__in_transaction:
-                self.__conn.rollback()  # <await>
-            raise
-        finally:
             try:
-                cursor.close()  # <await>
+                yield cursor
+                is_query_successful = True
+            except:
+                is_query_successful = False
+                if not self.__in_transaction:
+                    self.__conn.rollback()  # <await>
+                raise
+            finally:
+                cursor.close()  # <replace:await co_exec(cursor.close)>
                 # Commit only if query execution was successful
                 # and not in the middle of a transaction.
                 if is_query_successful and not self.__in_transaction:
                     self.__conn.commit()  # <await>
-            finally:
-                if acquire_lock:
-                    self.__cursor_lock.release()
+        finally:
+            if acquire_lock:
+                self.__cursor_lock.release()
 
     @require_open
     @__require_not_iter_same_ctx
@@ -416,15 +417,16 @@ class Connection:
         if self.__is_open:
             raise Error.DbOpenConnection
 
-        # Re-check om avoid the case where two or
-        # more threads call `open` at the same time
+        # Re-check if open to avoid the case where two
+        # or more threads call `open` at the same time
         # waiting for the lock.
-        with self.__cursor_lock:  # <async>
+        with self.__open_lock:  # <async>
             if self.__is_open:
                 raise Error.DbOpenConnection
 
             try:
                 self.__conn = self.__conn_factory()  # <await>
+                self.__driver.init_connection(self.__conn)
                 self.__is_open = True
             except:
                 self.__is_open = False

@@ -19,6 +19,7 @@ from pytest import FixtureRequest
 from testcontainers.core.container import DockerContainer
 from testcontainers.mssql import SqlServerContainer
 from testcontainers.mysql import MySqlContainer
+from testcontainers.oracle import OracleDbContainer
 from testcontainers.postgres import PostgresContainer
 
 from onlymaps._drivers import Driver
@@ -37,6 +38,7 @@ DRIVERS = [
     Driver.SQL_SERVER,
     Driver.SQL_LITE,
     Driver.UNKNOWN,
+    Driver.ORACLE_DB,
 ]
 
 
@@ -254,6 +256,7 @@ DbContainer: TypeAlias = (
     | MySqlContainer
     | MariaDbContainer
     | SqlServerContainer
+    | OracleDbContainer
     | SqliteContainer
 )
 
@@ -285,6 +288,8 @@ def conn_str_from_container(container: DbContainer) -> str:
             driver = Driver.MY_SQL
         case MariaDbContainer():
             driver = Driver.MARIA_DB
+        case OracleDbContainer():
+            driver = Driver.ORACLE_DB
         case SqlServerContainer():
             driver = Driver.SQL_SERVER
         case _:  # pragma: no cover
@@ -318,18 +323,31 @@ class SQL:
     CREATE_TEST_TABLE = f"CREATE TABLE {TEST_TABLE} (id INT PRIMARY KEY)"
 
     @staticmethod
-    def _placeholder(driver: Driver) -> str:
+    def _placeholder(driver: Driver, n: int | None = None) -> str:
         """
         Returns a positional placeholder based on the provided driver.
+
+        :param int | None n: An integer that, if provided, is used in
+            the Oracle DB placeholder.
         """
-        return "?" if driver == Driver.SQL_LITE else "%s"
+        match driver:
+            case Driver.ORACLE_DB:
+                return f":{n if n is not None else 0}"
+            case Driver.SQL_LITE:
+                return "?"
+            case _:
+                return "%s"
 
     @staticmethod
     def _kw_placeholder(driver: Driver) -> str:
         """
         Returns a keyword placeholder based on the provided driver.
         """
-        return ":scalar" if driver == Driver.SQL_LITE else "%(scalar)s"
+        match driver:
+            case Driver.ORACLE_DB | Driver.SQL_LITE:
+                return ":scalar"
+            case _:
+                return "%(scalar)s"
 
     @classmethod
     def SELECT_SINGLE_SCALAR(cls, driver: Driver) -> str:
@@ -344,10 +362,9 @@ class SQL:
         """
         Query to select a single row with column names.
         """
-        placeholder = cls._placeholder(driver)
         query = "SELECT "
-        for field_name in RowPydanticModel.model_fields:
-            query += f"{placeholder} AS {field_name},"
+        for i, field_name in enumerate(RowPydanticModel.model_fields):
+            query += f"{cls._placeholder(driver, i)} AS {field_name},"
         return query.removesuffix(",")
 
     @classmethod
@@ -363,12 +380,21 @@ class SQL:
         """
         Query to select multiple rows with column names.
         """
-        placeholder = cls._placeholder(driver)
-        query = "SELECT "
-        for field_name in RowPydanticModel.model_fields:
-            query += f"{placeholder} AS {field_name},"
-        query = query.removesuffix(",")
-        return f"{query} UNION ALL {query}"
+
+        idx = 0
+
+        def build_query() -> str:
+            nonlocal idx
+            query = "SELECT "
+            for field_name in RowPydanticModel.model_fields:
+                query += f"{cls._placeholder(driver, idx)} AS {field_name},"
+                idx += 1
+            return query.removesuffix(",")
+
+        query1 = build_query()
+        query2 = build_query()
+
+        return f"{query1} UNION ALL {query2}"
 
     @classmethod
     def SELECT_SINGLE_ROW_WITH_INT_COL_NAMES(
@@ -378,10 +404,9 @@ class SQL:
         Query to select a single row with column names
         following the `cN` pattern.
         """
-        placeholder = cls._placeholder(driver)
         query = "SELECT "
         for i in range(num_placeholders):
-            query += f"{placeholder} AS c{i},"
+            query += f"{cls._placeholder(driver, i)} AS c{i},"
         return query.removesuffix(",")
 
     @classmethod
@@ -409,8 +434,7 @@ class SQL:
         """
         Query to select many rows from the test table.
         """
-        placeholder = cls._placeholder(driver)
-        template = ",".join(placeholder for _ in range(num_elements))
+        template = ",".join(cls._placeholder(driver, i) for i in range(num_elements))
         return f"SELECT id FROM {cls.TEST_TABLE} WHERE id IN ({template})"
 
     @classmethod

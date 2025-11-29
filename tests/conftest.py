@@ -10,6 +10,7 @@ from tests.fixtures.containers import (
     db_container,
     mariadb_container,
     mysql_container,
+    oracledb_container,
     pg_container,
     sql_server_container,
     sqlite_container,

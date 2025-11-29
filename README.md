@@ -6,7 +6,7 @@
 ![OnlyMaps Logo](docs/source/onlymaps.png)
 
 
-Onlymaps is a Python micro-ORM library that enables you to interact with a database
+Onlymaps is a Python micro-ORM library that lets you interact with a database
 through plain SQL queries while it takes care of mapping the results back to Python
 objects. More specifically, it provides:
 
@@ -103,6 +103,7 @@ The `{DB_TYPE}` placeholder can take any of the following values depending on th
 - `mysql`: MySQL
 - `mssql`: Microsoft SQL Server
 - `mariadb`: MariaDB
+- `oraceldb`: Oracle Database
 - `sqlite`: SQLite. More specifically, when connecting to a SQLite database, your connection string must be formatted as such: `sqlite:///{DB_NAME}`.
 
 #### Using unsupported drivers
@@ -392,7 +393,7 @@ If you wish to retain that, you should use a model type:
 ```python
 rows: list[dict] = db.fetch_many(dict, "SELECT id, label FROM my_table")
 
-print(rows.keys()) # This prints `dict_keys(['id', 'label'])`.
+print(rows[0].keys()) # This prints `dict_keys(['id', 'label'])`.
 ```
 
 You can use whichever suits you best, as both container types and

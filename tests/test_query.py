@@ -333,6 +333,94 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
             query = SQL.SELECT_SINGLE_SCALAR(db.driver)
             db.fetch_one(int, query, "a")  # <await>
 
+    def test_query_on_complex_bulk_with_sequence_args(  # <async>
+        self, db: Database
+    ) -> None:
+        """
+        Tests whether arguments are properly handled when wrapped
+        within a `Bulk` argument containing sequence arguments.
+        """
+
+        if db.driver in {Driver.SQL_SERVER, Driver.ORACLE_DB}:
+            pytest.skip(
+                reason="Temporary tables not supported or need different syntax."
+            )
+
+        tmp_table = "tmp_table"
+        c1, c2 = "c1", "c2"
+
+        db.exec(  # <await>
+            f"""
+            CREATE TEMPORARY TABLE {tmp_table} (
+                {c1} VARCHAR(100),
+                {c2} VARCHAR(100)
+            )
+            """
+        )
+
+        class PydanticModel(BaseModel):
+            """
+            A simple pydantic model class.
+            """
+
+            n: int
+
+        params = [[Json([i]), PydanticModel(n=i)] for i in range(5)]
+
+        plchld_1 = SQL.placeholder(db.driver, n=1)
+        plchld_2 = SQL.placeholder(db.driver, n=2)
+
+        # Asserts no exception is raised.
+        db.exec(  # <await>
+            f"INSERT INTO {tmp_table}({c1}, {c2}) VALUES({plchld_1}, {plchld_2})",
+            Bulk(params),
+        )
+
+    def test_query_on_complex_bulk_with_mapping_args(  # <async>
+        self, db: Database
+    ) -> None:
+        """
+        Tests whether arguments are properly handled when wrapped
+        within a `Bulk` argument containing mapping arguments.
+        """
+
+        if db.driver in {Driver.SQL_SERVER, Driver.ORACLE_DB}:
+            pytest.skip(
+                reason="Temporary tables not supported or need different syntax."
+            )
+
+        tmp_table = "tmp_table"
+        c1, c2 = "c1", "c2"
+
+        db.exec(  # <await>
+            f"""
+            CREATE TEMPORARY TABLE {tmp_table} (
+                {c1} VARCHAR(100),
+                {c2} VARCHAR(100)
+            )
+            """
+        )
+
+        class PydanticModel(BaseModel):
+            """
+            A simple pydantic model class.
+            """
+
+            n: int
+
+        params = [
+            {"scalar1": Json([i]), "scalar2": PydanticModel(n=i)} for i in range(5)
+        ]
+
+        plchld_1 = SQL.kw_placeholder(db.driver, n=1)
+        plchld_2 = SQL.kw_placeholder(db.driver, n=2)
+
+        # Asserts no exception is raised.
+        db.exec(  # <await>
+            f"INSERT INTO {tmp_table}({c1}, {c2}) VALUES({plchld_1}, {plchld_2})",
+            Bulk(params),
+        )
+
     @pytest.mark.parametrize("method", ["fetch_one", "fetch_one_or_none", "fetch_many"])
     def test_query_on_bulk_param(self, db: Database, method: str) -> None:  # <async>
         """

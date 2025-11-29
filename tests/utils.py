@@ -10,7 +10,7 @@ from dataclasses import is_dataclass, make_dataclass
 from datetime import date, datetime
 from enum import IntEnum, StrEnum
 from typing import Any, TypeAlias, Union
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import BaseModel, create_model
 from pydantic.dataclasses import dataclass as pydantic_dataclass

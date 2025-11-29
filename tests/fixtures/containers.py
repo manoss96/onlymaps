@@ -117,6 +117,7 @@ def oracledb_container() -> Iterator[OracleDbContainer]:
     """
 
     with OracleDbContainer(image="gvenzl/oracle-free:slim") as oracledb:
+
         conn_str = oracledb.get_connection_url()
 
         m = re.fullmatch(
@@ -126,6 +127,24 @@ def oracledb_container() -> Iterator[OracleDbContainer]:
 
         username, password, dbname = m.groups()
 
+        # NOTE: Increase the number of processes and restart the database.
+        #       Do this due to an error that sometimes occurs during opening
+        #       a new connection:
+        # 
+        #       oracledb.exceptions.OperationalError:
+        #           DPY-6005: cannot connect to database (CONNECTION_ID=3uxZaUf0IUknsi7pokzdtg==).
+        #           DPY-6000: Listener refused connection. (Similar to ORA-12516)
+        oracledb.exec(
+            [
+                "bash",
+                "-c",
+                "echo 'ALTER SYSTEM SET processes=500 SCOPE=spfile;' | sqlplus / as sysdba",
+            ]
+        )
+        oracledb.exec(["bash", "-c", "echo 'SHUTDOWN IMMEDIATE' | sqlplus / as sysdba"])
+        oracledb.exec(["bash", "-c", f"echo 'STARTUP' | sqlplus / as sysdba"])
+
+        # Create any necessary tables.
         oracledb.exec(
             [
                 "bash",

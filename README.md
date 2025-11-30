@@ -77,7 +77,7 @@ db.open()
 db.close()
 ```
 
-Since the sync and async APIs are identical, from now on we will be using the sync API for all examples. You only have to remeber that when using the async API, methods must be awaited:
+Since the sync and async APIs are identical, from now on we will be using the sync API for all examples. You only have to remember that when using the async API, methods must be awaited:
 
 ```python
 from onlymaps.asyncio import connect, AsyncDatabase

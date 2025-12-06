@@ -105,6 +105,7 @@ The `{DB_TYPE}` placeholder can take any of the following values depending on th
 - `mariadb`: MariaDB
 - `oraceldb`: Oracle Database
 - `sqlite`: SQLite. More specifically, when connecting to a SQLite database, your connection string must be formatted as such: `sqlite:///{DB_NAME}`.
+- `duckdb`: DuckDB. Similarly, when connecting to a DuckDB database, your connection string must be formatted as such: `duckdb:///{DB_NAME}`.
 
 #### Using unsupported drivers
 

@@ -8,6 +8,7 @@ This module imports all fixtures that are to be available globally.
 from tests.fixtures.connections import connection, connection_B, pool
 from tests.fixtures.containers import (
     db_container,
+    duckdb_container,
     mariadb_container,
     mysql_container,
     oracledb_container,

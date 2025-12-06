@@ -34,8 +34,8 @@ from tests.utils import (
     handle_scalar_param,
 )
 
-# NOTE: Do not incude SQL Server for async tests.
-# <include:DRIVERS = [d for d in DRIVERS if d != Driver.SQL_SERVER]>
+# NOTE: Do not incude SQL Server / DuckDB for async tests.
+# <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB}]>
 
 
 @pytest.mark.parametrize("pooling", [False, True])

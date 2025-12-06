@@ -84,12 +84,12 @@ class PyDbAPIv2Connection(Protocol):
         See: https://peps.python.org/pep-0249/#Connection.close
         """
 
-    def commit(self) -> None:  # <async>
+    def commit(self) -> Any | None:  # <async>
         """
         See: https://peps.python.org/pep-0249/#commit
         """
 
-    def rollback(self) -> None:  # <async>
+    def rollback(self) -> Any | None:  # <async>
         """
         See: https://peps.python.org/pep-0249/#rollback
         """

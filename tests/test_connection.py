@@ -17,9 +17,10 @@ from tests.fixtures.connections import connection, connection_B, dbapiv2
 from tests.fixtures.executors import Executor
 from tests.utils import DRIVERS, SQL
 
-# NOTE: Do not incude SQL Server for async tests.
 # <include:from tests.utils import Driver>
-# <include:DRIVERS = [d for d in DRIVERS if d != Driver.SQL_SERVER]>
+
+# NOTE: Do not incude SQL Server / DuckDB for async tests.
+# <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB}]>
 
 
 @pytest.mark.parametrize("connection", DRIVERS, indirect=True)

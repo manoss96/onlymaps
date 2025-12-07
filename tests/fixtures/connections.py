@@ -72,12 +72,6 @@ def pool(  # <async>
         "wait_timeout": POOL_WAIT_TIMEOUT,
     }
 
-    # NOTE: In the case of Sqlite use an extremely large
-    #       timeout so as not to get a locked database error.
-    #       See: https://docs.python.org/3/library/sqlite3.html#sqlite3.connect
-    if driver == Driver.SQL_LITE:
-        kwargs["timeout"] = 10000
-
     conn = ConnectionPool.from_conn_str(conn_str, **pool_kwargs, **kwargs)
 
     if driver == Driver.UNKNOWN:

@@ -13,8 +13,8 @@ All notable changes to this project are documented in this file.
 
 - (INTERNAL) Renamed certain functions to better convey their meaning. [#5]
 - (INTERNAL) Simplified method `onlymaps._connection.Connection._safe_cursor` by moving the cursor-obtaining logic into a
-separate method `__cursor`. [#9]
-- (INTERNAL) Added private method `onlymaps._connection.Connection.__close` so as to remove duplicated logic. [#9]
+separate method `__cursor`. [#10]
+- (INTERNAL) Added private method `onlymaps._connection.Connection.__close` so as to remove duplicated logic. [#10]
 
 ### Fixed
 
@@ -33,4 +33,4 @@ separate method `__cursor`. [#9]
 [#5]: https://github.com/manoss96/onlymaps/pull/5
 [#6]: https://github.com/manoss96/onlymaps/pull/6
 [#8]: https://github.com/manoss96/onlymaps/pull/8
-[#9]: https://github.com/manoss96/onlymaps/pull/9
+[#10]: https://github.com/manoss96/onlymaps/pull/10

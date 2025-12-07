@@ -243,7 +243,7 @@ class MariaDbContainer(DockerContainer):
 
     def __init__(self, image: str, env: dict[str, str]) -> None:
         env["MARIADB_ALLOW_EMPTY_ROOT_PASSWORD"] = "1"
-        super().__init__(image, env=env, volumes=None)
+        super().__init__(image, env=env)
         self.port = 3306
         self.username = env.get("MARIADB_USER")
         self.password = env.get("MARIADB_PASSWORD")

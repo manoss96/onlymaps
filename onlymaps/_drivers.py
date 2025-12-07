@@ -410,7 +410,7 @@ class OracleDbDriver(BaseDriver):
         :param int idx: The column's index.
         :param list[str] colnames: The column name to be fixed.
         """
-        # NOTE: Due to OracleDB driver returning the expression itself
+        # NOTE: Due to the OracleDB driver returning the expression itself
         #       as the column name if one was not provided, there is
         #       no way to know whether a name was provided or not.
         # NOTE: Since all column names are converted to uppercase by default,

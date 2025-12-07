@@ -103,9 +103,24 @@ class Error:
     )
     PoolIteratorNotAllowed = RuntimeError("Nested iterations are not allowed.")
 
+    @staticmethod
+    def create_async_not_supported_error(
+        name: str,
+    ) -> NotImplementedError:  # pragma: no cover
+        """
+        Returns a `NotImplementedError` with an appropriate message.
+
+        :param str name: The name of the database for which async query execution
+            is not yet supported.
+        """
+        return NotImplementedError(f"Async is not currently supported for {name}.")
+
 
 _RE_CONN_STR = re.compile(
-    r"^(?:sqlite:///(\S+)|([a-z]+)://(?:(\S+?)(?::(\S+?))?@)?([\w\.]+):(\d+)(?:/(\S+)))$"
+    r"^(?:(?:([a-z]+)://"
+    "|"
+    r"([a-z]+)://(?:(\S+?)(?::(\S+?))?@)?([\w\.]+):(\d+))"
+    r"(?:/(\S+)))$"
 )
 
 
@@ -180,10 +195,14 @@ def decompose_conn_str(conn_str: str) -> ConnInfo:
     """
     if m := _RE_CONN_STR.match(conn_str):
 
-        sqlite_db, driver, user, password, host, port, db = m.groups()
+        db_only_driver, driver, user, password, host, port, db = m.groups()
 
-        if sqlite_db:
-            return (Driver.SQL_LITE, "", 0, sqlite_db, "", "")
+        if db_only_driver:
+            driver = db_only_driver
+            host = ""
+            port = 0
+            user = ""
+            password = ""
 
         try:
             driver = Driver(driver)
@@ -498,10 +517,8 @@ def get_async_pydbapiv2_conn_factory_and_driver(
                 "tcp_connect_timeout": connect_timeout,
             }
 
-        case Driver.SQL_SERVER:
-            raise NotImplementedError(  # pragma: no cover
-                "Async is not currently supported for MS SQL Server."
-            )
+        case Driver.SQL_SERVER:  # pragma: no cover
+            raise Error.create_async_not_supported_error("MS SQL Server")
 
         case Driver.SQL_LITE:
 

@@ -15,7 +15,7 @@ from onlymaps._pool import ConnectionPool
 from onlymaps._spec import PyDbAPIv2Connection
 from tests.fixtures.connections import db, dbapiv2
 from tests.fixtures.containers import db_container
-from tests.utils import DRIVERS, DbContainer, conn_str_from_container
+from tests.utils import DRIVERS, DbContainer, get_conn_str_and_kwargs_from_container
 
 # NOTE: Do not incude SQL Server for async tests.
 # <include:DRIVERS = [d for d in DRIVERS if d != Driver.SQL_SERVER]>
@@ -33,9 +33,9 @@ class TestConnect:  # <replace:class TestAsyncConnect:>
         via a connection string.
         """
 
-        conn_str = conn_str_from_container(db_container)
+        conn_str, kwargs = get_conn_str_and_kwargs_from_container(db_container)
 
-        db = connect(conn_str, connect_timeout=2)
+        db = connect(conn_str, **kwargs)
 
         db.open()  # <await>
 
@@ -49,9 +49,9 @@ class TestConnect:  # <replace:class TestAsyncConnect:>
         as a context manager via a connection string.
         """
 
-        conn_str = conn_str_from_container(db_container)
+        conn_str, kwargs = get_conn_str_and_kwargs_from_container(db_container)
 
-        with connect(conn_str, connect_timeout=2) as _:  # <async>
+        with connect(conn_str, **kwargs) as _:  # <async>
             pass
 
     def test_connect_via_conn_str_is_connection(  # <async>
@@ -63,9 +63,9 @@ class TestConnect:  # <replace:class TestAsyncConnect:>
         string.
         """
 
-        conn_str = conn_str_from_container(db_container)
+        conn_str, kwargs = get_conn_str_and_kwargs_from_container(db_container)
 
-        db = connect(conn_str, connect_timeout=2)
+        db = connect(conn_str, **kwargs)
         assert isinstance(db, Connection)
 
     def test_connect_via_conn_str_is_connection_pool(  # <async>
@@ -77,8 +77,8 @@ class TestConnect:  # <replace:class TestAsyncConnect:>
         connection string.
         """
 
-        conn_str = conn_str_from_container(db_container)
-        db = connect(conn_str, pooling=True, connect_timeout=2)
+        conn_str, kwargs = get_conn_str_and_kwargs_from_container(db_container)
+        db = connect(conn_str, pooling=True, **kwargs)
         assert isinstance(db, ConnectionPool)
 
     def test_connect_via_conn_factory(  # <async>
@@ -92,7 +92,7 @@ class TestConnect:  # <replace:class TestAsyncConnect:>
         def conn_factory() -> PyDbAPIv2Connection:  # <async>
             return dbapiv2  # pragma: no cover
 
-        db = connect(conn_factory, connect_timeout=2)
+        db = connect(conn_factory)
 
         db.open()  # <await>
 
@@ -109,7 +109,7 @@ class TestConnect:  # <replace:class TestAsyncConnect:>
         def conn_factory() -> PyDbAPIv2Connection:  # <async>
             return dbapiv2  # pragma: no cover
 
-        with connect(conn_factory, connect_timeout=2) as _:  # <async>
+        with connect(conn_factory) as _:  # <async>
             pass
 
     def test_connect_via_conn_factory_is_connection(  # <async>
@@ -144,23 +144,23 @@ class TestConnect:  # <replace:class TestAsyncConnect:>
 
     def test_connect_on_value_error(self, db_container: DbContainer) -> None:  # <async>
         """
-        Tests whether a `ValueError` exception is raised when
-        providing the function with neither a connection string
-        nor a callable.
+        Tests whether a `ValueError` exception is raised when providing
+        the `connect` function with neither a connection string nor a
+        callable.
         """
 
         with pytest.raises(ValueError):
-            _ = connect(1, pooling=True, connect_timeout=2)  # type: ignore
+            _ = connect(1)  # type: ignore
 
     def test_connect_on_set_autocommit_argument(  # <async>
         self, db_container: DbContainer
     ) -> None:
         """
-        Tests whether a connection can be successfully established
-        while using `connect` in a `with` statement.
+        Tests whether a `ValueError` exception is raised when providing
+        the `connect` function with argument `autocommit`.
         """
 
-        conn_str = conn_str_from_container(db_container)
+        conn_str, _ = get_conn_str_and_kwargs_from_container(db_container)
 
         with pytest.raises(ValueError):
             with connect(conn_str, autocommit=True) as _:  # <async>
@@ -170,11 +170,11 @@ class TestConnect:  # <replace:class TestAsyncConnect:>
         self, db_container: DbContainer
     ) -> None:
         """
-        Tests whether a connection can be successfully established
-        while using `connect` in a `with` statement.
+        Tests whether a `ValueError` exception is raised when providing
+        the `connect` function with an unknown pool argument.
         """
 
-        conn_str = conn_str_from_container(db_container)
+        conn_str, _ = get_conn_str_and_kwargs_from_container(db_container)
 
         with pytest.raises(ValueError):
             with connect(conn_str, some_pool_arg=3) as _:  # <async>
@@ -187,11 +187,12 @@ def test_connect_on_sql_server_set_timeout_argument(
     db_container: DbContainer,
 ) -> None:
     """
-    Tests whether a connection can be successfully established
-    while using `connect` in a `with` statement.
+    Tests whether a `ValueError` exception is raised when providing
+    the `connect` function with a `timeout` argument while using the
+    `SQL_Server` driver.
     """
 
-    conn_str = conn_str_from_container(db_container)
+    conn_str, _ = get_conn_str_and_kwargs_from_container(db_container)
 
     with pytest.raises(ValueError):
         with connect(conn_str, timeout=2) as _:

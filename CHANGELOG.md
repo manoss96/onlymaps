@@ -8,9 +8,13 @@ All notable changes to this project are documented in this file.
 - Oracle databases are now supported via driver `oracledb`. [#5]
 - (INTERNAL) `BaseDriver` subclasses can now optionally implement an `init_connection` method which is called right after a `PyDbAPIv2Connection` is created so as to perform any driver specific initializations on said connection. [#5]
 
+
 ### Changed
 
 - (INTERNAL) Renamed certain functions to better convey their meaning. [#5]
+- (INTERNAL) Simplified method `onlymaps._connection.Connection._safe_cursor` by moving the cursor-obtaining logic into a
+separate method `__cursor`. [#10]
+- (INTERNAL) Added private method `onlymaps._connection.Connection.__close` so as to remove duplicated logic. [#10]
 
 ### Fixed
 
@@ -29,3 +33,4 @@ All notable changes to this project are documented in this file.
 [#5]: https://github.com/manoss96/onlymaps/pull/5
 [#6]: https://github.com/manoss96/onlymaps/pull/6
 [#8]: https://github.com/manoss96/onlymaps/pull/8
+[#10]: https://github.com/manoss96/onlymaps/pull/10

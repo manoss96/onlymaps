@@ -202,37 +202,10 @@ class Connection:
             self.__cursor_lock.acquire()  # <await>
 
         try:
-            # This block ensures a connection is not closed/broken,
-            # and if it is, attempts to open a new connection.
-            if self.__handle_broken_conn and not self.__in_transaction:
-                try:
-                    # Both obtain a cursor and ping the database by
-                    # executing a no-result query to ensure that the
-                    # connection has not been closed.
-                    # fmt: off
-                    cursor = (
-                        self.__conn.cursor()  # <replace:await co_exec(self.__conn.cursor)>
-                    )
-                    # fmt: on
-                    cursor.execute("SELECT 1 WHERE FALSE")  # <await>
-                except:  # pylint: disable=bare-except
-                    try:
-                        # The connection is likely to be already closed
-                        # at this point, though an attempt to close it
-                        # doesn't hurt!
-                        self.__is_open = False
-                        self.__conn.close()  # <replace:await co_exec(self.__conn.close)>
-                    except:  # pylint: disable=bare-except
-                        pass
-                    finally:
-                        # Re-open connection.
-                        self.open()  # <await>
 
-            # fmt: off
-            cursor = (
-                self.__conn.cursor() # <replace:await co_exec(self.__conn.cursor)>
+            cursor = self.__cursor(  # <await>
+                test_connection=self.__handle_broken_conn and not self.__in_transaction
             )
-            # fmt: on
 
             try:
                 yield cursor
@@ -447,6 +420,53 @@ class Connection:
             if not self.__is_open:
                 raise Error.DbClosedConnection
 
-            self.__is_open = False
+            self.__close()  # <await>
 
-            self.__conn.close()  # <replace:await co_exec(self.__conn.close)>
+    def __close(self) -> None:  # <async>
+        """
+        Closes the underlying connection to the database.
+
+        :NOTE: This function does not aquire a lock and must be
+            called while `self.__cursor_lock` has been acquired.
+        """
+        self.__is_open = False
+        self.__conn.close()  # <replace:await co_exec(self.__conn.close)>
+
+    def __cursor(self, test_connection: bool) -> PyDbAPIv2Cursor:  # <async>
+        """
+        Obtains a cursor from the underlying connection and returns it.
+
+        :param bool test_connection: If set to `True`, then the connection is tested
+            before returning a cursor in order to ensure it's not broken or closed
+            by the database, in which case a new connection is established which is
+            used to obtain the returned cursor.
+        """
+        if test_connection:
+            try:
+                # Obtain a cursor and test the connection.
+                cursor = (
+                    self.__conn.cursor()  # <replace:await co_exec(self.__conn.cursor)>
+                )
+                cursor.execute("SELECT 1 WHERE FALSE")  # <await>
+            except:  # pylint: disable=bare-except
+                try:
+                    # NOTE: The connection is likely to be already closed
+                    # at this point, though an attempt to close it
+                    # doesn't hurt!
+                    self.__close()  # <await>
+                except:  # pylint: disable=bare-except
+                    pass
+                finally:
+                    self.open()  # <await>
+                    test_connection = False
+
+        # Only acquire a cursor if no testing has occurred or
+        # if the testing actually failed.
+        if not test_connection:
+            # fmt: off
+            cursor = (
+                self.__conn.cursor() # <replace:await co_exec(self.__conn.cursor)>
+            )
+            # fmt: on
+
+        return cursor

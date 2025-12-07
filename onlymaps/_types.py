@@ -261,32 +261,36 @@ class OnlymapsDecimal(OnlymapsType[Decimal]):
 
 class OnlymapsStr(OnlymapsType[str]):
     """
-    Converts bytes into strings if utf-8 encodable.
+    This class allows for `bytes`/`bytearray` to `str` conversion
+    as long as the `bytes`/`bytearray` object is utf-8 decodable.
     """
 
     @classmethod
     def parse_impl(cls, value: Any, *_: type) -> Any:
-        if isinstance(value, bytes):
+        if isinstance(value, (bytes, bytearray)):
             return value.decode("utf-8")
         return value
 
 
 class OnlymapsBytes(OnlymapsType[bytes]):
     """
-    Some drivers like MySQL and SQLite do not support
-    BOOLEAN types, in place of which they use integers.
+    This class allows for `bytearray` to `bytes` conversion,
+    as well as `str` to `bytes` conversion as long as the string
+    is utf-8 encodable.
     """
 
     @classmethod
     def parse_impl(cls, value: Any, *_: type) -> Any:
         if isinstance(value, str):
             return value.encode("utf-8")
+        if isinstance(value, bytearray):
+            return bytes(value)
         return value
 
 
 class OnlymapsUUID(OnlymapsType[UUID]):
     """
-    Some drivers may not natively support UUID.
+    This class allows for `str` to `UUID` conversion.
     """
 
     @classmethod

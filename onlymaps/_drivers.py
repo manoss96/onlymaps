@@ -23,7 +23,7 @@ from pydantic_core import to_jsonable_python
 from typing_extensions import override
 
 from onlymaps._params import Json
-from onlymaps._types import OnlymapsBool, OnlymapsType
+from onlymaps._types import OnlymapsBool, OnlymapsBytes, OnlymapsType
 
 if TYPE_CHECKING:
     import oracledb
@@ -48,6 +48,7 @@ class Driver(StrEnum):
     ORACLE_DB = "oracledb"
     SQL_LITE = "sqlite"
     DUCK_DB = "duckdb"
+    SNOWFLAKE = "snowflake"
     UNKNOWN = "?"
 
 
@@ -587,6 +588,52 @@ class DuckDbDriver(BaseDriver):
         return colname
 
 
+class SnowflakeDriver(BaseDriver):
+    """
+    This class represents the connection's underlying driver
+    and is used to handle driver-specific issues.
+    """
+
+    @property
+    def tag(self) -> Driver:
+        """
+        The driver's type.
+        """
+        return Driver.SNOWFLAKE
+
+    @override
+    def handle_sql_param(self, param: Any) -> Any:
+        """
+        Some Python types are not supported by certain drivers. This function
+        handles these cases and maps parameters of these types to a type that
+        is supported.
+
+        :param Any param: An SQL query parameter.
+        """
+        match param:
+            case Enum():
+                return param.value
+            case _:
+                return super().handle_sql_param(param)
+
+    @staticmethod
+    def std_colname(idx: int, colname: str) -> str:
+        """
+        Assigns a unique column name to the provided column
+        name if it was not explicitly set by the user.
+
+        :param int idx: The column's index.
+        :param list[str] colnames: The column name to be fixed.
+        """
+        # NOTE: Due to the Snowflake driver returning the expression itself
+        #       as the column name if one was not provided, there is
+        #       no way to know whether a name was provided or not.
+        # NOTE: Since all column names are converted to uppercase by default,
+        #       we should instead convert them back to lowercase as that is
+        #       the most common option for model fields.
+        return colname.lower()
+
+
 class UnknownDriver(BaseDriver):
     """
     This class represents the connection's underlying driver
@@ -649,6 +696,8 @@ def driver_factory(
             factory = SqlLiteDriver
         case Driver.DUCK_DB:
             factory = DuckDbDriver
+        case Driver.SNOWFLAKE:
+            factory = SnowflakeDriver
         case Driver.UNKNOWN:  # pragma: no cover
             factory = UnknownDriver
 

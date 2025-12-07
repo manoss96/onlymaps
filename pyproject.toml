@@ -51,6 +51,9 @@ aiomysql = [
 aiosqlite = [
   "aiosqlite == 0.21.0"
 ]
+snowflake = [
+  "snowflake-connector-python == 4.1.1"
+]
 
 all = [
   "psycopg[binary] == 3.2.10",
@@ -61,7 +64,8 @@ all = [
   "oracledb == 3.4.1",
   "duckdb == 1.4.3",
   "aiomysql == 0.3.2",
-  "aiosqlite == 0.21.0"
+  "aiosqlite == 0.21.0",
+  "snowflake-connector-python == 4.1.1"
 ]
 
 dev = [
@@ -74,7 +78,8 @@ dev = [
   "pylint-pydantic==0.3.2",
   "black==24.10.0",
   "isort==5.13.2",
-  "invoke==2.2.1"
+  "invoke==2.2.1",
+  "fakesnow[server] == 0.11.1"
 ]
 
 [build-system]

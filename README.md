@@ -106,6 +106,10 @@ The `{DB_TYPE}` placeholder can take any of the following values depending on th
 - `oraceldb`: Oracle Database
 - `sqlite`: SQLite. More specifically, when connecting to a SQLite database, your connection string must be formatted as such: `sqlite:///{DB_NAME}`.
 - `duckdb`: DuckDB. Similarly, when connecting to a DuckDB database, your connection string must be formatted as such: `duckdb:///{DB_NAME}`.
+- `snowflake`: Snowflake. When connecting to Snowflake, some additional parameters may need to be provided to the `connect` function, such as `account`. These parameters can be given in the form of keyword arguments:
+    ```python
+    db = connect("snowflake://user:password@snowflake:443/db", account="test_account")
+    ```
 
 #### Using unsupported drivers
 

@@ -35,7 +35,7 @@ from tests.utils import (
 )
 
 # NOTE: Exclude certain drivers from async tests.
-# <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB}]>
+# <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB, Driver.SNOWFLAKE}]>
 
 
 @pytest.mark.parametrize("pooling", [False, True])
@@ -153,6 +153,7 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
                     Driver.SQL_LITE,
                     # `Driver.MARIA_DB` may not be needed for sync `mariadb` package.
                     Driver.MARIA_DB,
+                    Driver.SNOWFLAKE,
                 }:
                     if isinstance(scalar, datetime):
                         fixed_scalar = scalar.strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -169,6 +170,7 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
                     Driver.SQL_LITE,
                     # `Driver.MARIA_DB` may not be needed for sync `mariadb` package.
                     Driver.MARIA_DB,
+                    Driver.SNOWFLAKE,
                 }:
                     if isinstance(scalar, datetime):
                         fixed_scalar = scalar.strftime("%Y-%m-%d %H:%M:%S.%f")

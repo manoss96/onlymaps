@@ -13,6 +13,7 @@ from tests.fixtures.containers import (
     mysql_container,
     oracledb_container,
     pg_container,
+    snowflake_container,
     sql_server_container,
     sqlite_container,
 )

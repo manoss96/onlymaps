@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     import psycopg
     import pymssql
     import pymysql
+    import snowflake.connector as snowflake
 
     from onlymaps.asyncio._spec import (
         AsyncDatabase,
@@ -408,6 +409,29 @@ def get_pydbapiv2_conn_factory_and_driver(
 
             kwargs |= {"database": database}
 
+        case Driver.SNOWFLAKE:
+
+            if TYPE_CHECKING:
+                module = snowflake
+            else:
+                _snowflake = try_import_module("snowflake")
+                module = getattr(_snowflake, "connector")
+
+            kwargs |= {
+                "host": host,
+                "port": port,
+                "database": database,
+                "user": user,
+                "password": password,
+                "login_timeout": connect_timeout,
+                "network_timeout": connect_timeout,
+                "autocommit": False,
+                # NOTE: https://docs.snowflake.com/en/developer-guide/driver-connections#snowflake-recommendations
+                "disable_query_context_cache": True,
+                # NOTE: Having request pooling enabled causes critical errors during testing.
+                "disable_request_pooling": True,
+            }
+
     conn_factory: PyDbAPIv2ConnectionFactory = partial(module.connect, **kwargs)
     driver_instance = driver_factory(
         driver, module.apilevel, module.threadsafety, module.paramstyle
@@ -552,6 +576,9 @@ def get_async_pydbapiv2_conn_factory_and_driver(
 
         case Driver.DUCK_DB:  # pragma: no cover
             raise Error.create_async_not_supported_error("DuckDB")
+
+        case Driver.SNOWFLAKE:  # pragma: no cover
+            raise Error.create_async_not_supported_error("Snowflake")
 
         case Driver.UNKNOWN:  # pragma: no cover
             raise ValueError(f"Unknown driver: `{driver}`")

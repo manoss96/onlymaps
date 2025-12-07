@@ -13,6 +13,7 @@ from enum import IntEnum, StrEnum
 from typing import Any, TypeAlias, Union
 from uuid import UUID
 
+import fakesnow
 from pydantic import BaseModel, create_model
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from pydantic.dataclasses import is_pydantic_dataclass
@@ -41,6 +42,7 @@ DRIVERS = [
     Driver.SQL_LITE,
     Driver.DUCK_DB,
     Driver.UNKNOWN,
+    Driver.SNOWFLAKE
 ]
 
 
@@ -263,6 +265,28 @@ class MariaDbContainer(DockerContainer):
         self.with_exposed_ports(self.port)
 
 
+class SnowflakeContainer:
+
+    def __enter__(self) -> "SnowflakeContainer":
+        self.__ctx = fakesnow.server()
+        conn_kwargs = self.__ctx.__enter__()
+        self.username: str = conn_kwargs["user"]
+        self.password: str = conn_kwargs["password"]
+        self.account: str = conn_kwargs["account"]
+        self.host: str = conn_kwargs["host"]
+        self.port: int = conn_kwargs["port"]
+        self.dbname = "test_db"
+        self.schema = "test_schema"
+        self.session_parameters = {"CLIENT_OUT_OF_BAND_TELEMETRY_ENABLED": False}
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.__ctx.__exit__(*args)
+
+    def get_exposed_port(self, _: int) -> int:
+        return self.port
+
+
 DbContainer: TypeAlias = (
     PostgresContainer
     | MySqlContainer
@@ -271,6 +295,7 @@ DbContainer: TypeAlias = (
     | OracleDbContainer
     | SqliteContainer
     | DuckDbContainer
+    | SnowflakeContainer
 )
 
 
@@ -289,7 +314,13 @@ def get_conn_str_and_kwargs_from_container(
     :param `DbContainer` container: A Docker container instance.
     """
 
-    kwargs: dict[str, Any] = {"connect_timeout": CONNECT_TIMEOUT}
+    # Use slightly longer timeout with snowflake container due to issues
+    # when disabling request pooling.
+    connect_timeout = (
+        7 if isinstance(container, SnowflakeContainer) else CONNECT_TIMEOUT
+    )
+
+    kwargs: dict[str, Any] = {"connect_timeout": connect_timeout}
 
     if isinstance(container, SqliteContainer):
         kwargs |= {
@@ -327,8 +358,18 @@ def get_conn_str_and_kwargs_from_container(
             driver = Driver.ORACLE_DB
         case SqlServerContainer():
             driver = Driver.SQL_SERVER
+        case SnowflakeContainer():
+            driver = Driver.SNOWFLAKE
         case _:  # pragma: no cover
             raise ValueError(f"Invalid container: `{container}`.")
+
+    if isinstance(container, SnowflakeContainer):
+        kwargs |= {
+            "protocol": "http",
+            "account": container.account,
+            "schema": container.schema,
+            "session_parameters": container.session_parameters,
+        }
 
     return f"{driver}://{user}:{password}@{host}:{port}/{db}", kwargs
 

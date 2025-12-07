@@ -16,6 +16,7 @@ from uuid import uuid4
 
 import duckdb
 import pytest
+import snowflake.connector as snowflake
 from pytest import FixtureRequest
 from testcontainers.mssql import SqlServerContainer
 from testcontainers.mysql import MySqlContainer
@@ -28,6 +29,7 @@ from tests.utils import (
     DbContainer,
     DuckDbContainer,
     MariaDbContainer,
+    SnowflakeContainer,
     SqliteContainer,
     get_request_param,
 )
@@ -201,6 +203,31 @@ def duckdb_container() -> Iterator[DuckDbContainer]:
         yield DuckDbContainer(dbname=db)
 
 
+@pytest.fixture(scope="session")
+def snowflake_container() -> Iterator[SnowflakeContainer]:
+    """
+    A fixture used to set up a pseudo Snowflake container.
+    """
+
+    with SnowflakeContainer() as container:
+        with (
+            snowflake.connect(
+                protocol="http",
+                host=container.host,
+                port=container.get_exposed_port(container.port),
+                account=container.account,
+                user=container.username,
+                password=container.password,
+                database=container.dbname,
+                schema=container.schema,
+                session_parameters=container.session_parameters,
+            ) as conn,
+            conn.cursor() as cursor,
+        ):
+            cursor.execute(SQL.CREATE_TEST_TABLE)
+        yield container
+
+
 @pytest.fixture(scope="function")
 def db_container(request: FixtureRequest) -> DbContainer:
     """
@@ -226,6 +253,8 @@ def db_container(request: FixtureRequest) -> DbContainer:
             container = "sqlite_container"
         case Driver.DUCK_DB:
             container = "duckdb_container"
+        case Driver.SNOWFLAKE:
+            container = "snowflake_container"
         case _:  # pragma: no cover
             raise ValueError(f"Invalid driver: `{param}`")
 

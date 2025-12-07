@@ -36,9 +36,9 @@ DRIVERS = [
     Driver.MY_SQL,
     Driver.MARIA_DB,
     Driver.SQL_SERVER,
+    Driver.ORACLE_DB,
     Driver.SQL_LITE,
     Driver.UNKNOWN,
-    Driver.ORACLE_DB,
 ]
 
 
@@ -243,7 +243,7 @@ class MariaDbContainer(DockerContainer):
 
     def __init__(self, image: str, env: dict[str, str]) -> None:
         env["MARIADB_ALLOW_EMPTY_ROOT_PASSWORD"] = "1"
-        super().__init__(image, env=env, volumes=None)
+        super().__init__(image, env=env)
         self.port = 3306
         self.username = env.get("MARIADB_USER")
         self.password = env.get("MARIADB_PASSWORD")
@@ -261,21 +261,41 @@ DbContainer: TypeAlias = (
 )
 
 
-def conn_str_from_container(container: DbContainer) -> str:
+def get_conn_str_and_kwargs_from_container(
+    container: DbContainer,
+) -> tuple[str, dict[str, Any]]:
     """
     Given a database Docker container, constructs and returns
-    a connection string that can be used to connect to said
-    container's database.
+    a tuple containing the following:
+
+    1. A connection string that can be used to connect to said
+        container's database.
+    2. A dictionary containing additional keyword arguments to
+        be passed to the `connect` function.
+
+    :param `DbContainer` container: A Docker container instance.
     """
 
+    kwargs: dict[str, Any] = {"connect_timeout": CONNECT_TIMEOUT}
+
     if isinstance(container, SqliteContainer):
-        return f"{Driver.SQL_LITE}:///{container.dbname}"
+        kwargs |= {
+            # NOTE: Set this to `False` so as to be able to use
+            #       this connection instance in a separate thread
+            #       when connected to an sqlite database.
+            "check_same_thread": False,
+            # NOTE: In the case of Sqlite use an extremely large
+            #       timeout so as not to get a locked database error.
+            #       See: https://docs.python.org/3/library/sqlite3.html#sqlite3.connect
+            "timeout": 10000,
+        }
+        return f"{Driver.SQL_LITE}:///{container.dbname}", kwargs
 
     # NOTE: Use `127.0.0.1` instead of `localhost` as some
     #       drivers treat `localhost` as an indication to
     #       establish a connection via a unix socket, which
     #       causes tests to fail for `mariadb` driver in CI.
-    host = "127.0.0.1"
+    host = getattr(container, "host", "127.0.0.1")
     port = container.get_exposed_port(container.port)
     db = container.dbname
     user = container.username
@@ -295,7 +315,7 @@ def conn_str_from_container(container: DbContainer) -> str:
         case _:  # pragma: no cover
             raise ValueError(f"Invalid container: `{container}`.")
 
-    return f"{driver}://{user}:{password}@{host}:{port}/{db}"
+    return f"{driver}://{user}:{password}@{host}:{port}/{db}", kwargs
 
 
 def get_request_param(request: FixtureRequest) -> Any | None:

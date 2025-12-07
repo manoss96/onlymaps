@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 - (INTERNAL) Simplified method `onlymaps._connection.Connection._safe_cursor` by moving the cursor-obtaining logic into a
 separate method `__cursor`. [#10]
 - (INTERNAL) Added private method `onlymaps._connection.Connection.__close` so as to remove duplicated logic. [#10]
+- (INTERNAL) Minor code improvements and fixes in `onlymaps._utils.py` and `tests.utils.py`. [#11]
 
 ### Fixed
 
@@ -34,3 +35,4 @@ separate method `__cursor`. [#10]
 [#6]: https://github.com/manoss96/onlymaps/pull/6
 [#8]: https://github.com/manoss96/onlymaps/pull/8
 [#10]: https://github.com/manoss96/onlymaps/pull/10
+[#11]: https://github.com/manoss96/onlymaps/pull/11

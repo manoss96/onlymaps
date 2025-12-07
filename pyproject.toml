@@ -55,6 +55,7 @@ all = [
   "types-PyMySQL == 1.1.0.20250916",
   "mariadb == 1.1.14",
   "pymssql == 2.3.8",
+  "oracledb == 3.4.1",
   "aiomysql == 0.3.2",
   "aiosqlite == 0.21.0"
 ]

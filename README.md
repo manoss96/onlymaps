@@ -131,7 +131,7 @@ db = connect(conn_factory)
 ```
 
 You only have to remember that, for this to work, the factory function must output connection
-instances that implement the `Connection` interface of the [Python Database API Specification v2.0](https://peps.python.org/pep-0249/).
+instances that implement the `Connection` interface of [Python Database API Specification v2.0](https://peps.python.org/pep-0249/).
 Therefore, as long as a Python database driver package is compatible with the afformentioned protocol,
 you can use it and it will work just fine!
 
@@ -339,7 +339,7 @@ class JsonColumn(BaseModel):
     label: str
     metadata: str | None = None
 
-json_rows: list[JsonColumn] = db.fetch_many(JsonColumn, "SELECT json_col FROM my_table")
+json_cols: list[JsonColumn] = db.fetch_many(JsonColumn, "SELECT json_col FROM my_table")
 ```
 
 In general, when querying a single column, the following types are supported:
@@ -369,7 +369,7 @@ should always be some sorts of struct type which is able to contain more than on
 types of data:
 
 ```python
-ids: list[tuple] = db.fetch_many(tuple, "SELECT id, label FROM my_table")
+rows: list[tuple] = db.fetch_many(tuple, "SELECT id, label FROM my_table")
 ```
 
 The complete list of types supported when querying multiple columns is as follows:
@@ -403,14 +403,14 @@ type of values you are expecting:
 ```python
 
 # This works!
-ids1 = db.fetch_many(tuple[int, str], "SELECT id, label FROM my_table")
+rows1 = db.fetch_many(tuple[int, str], "SELECT id, label FROM my_table")
 
 # And this works!
-ids2 = db.fetch_many(dict[str, int | str], "SELECT id, label FROM my_table")
+rows2 = db.fetch_many(dict[str, int | str], "SELECT id, label FROM my_table")
 
 # But these two raise a `TypeError`.
-ids3 = db.fetch_many(tuple[int, int], "SELECT id, label FROM my_table")
-ids4 = db.fetch_many(dict[str, int], "SELECT id, label FROM my_table")
+rows3 = db.fetch_many(tuple[int, int], "SELECT id, label FROM my_table")
+rows4 = db.fetch_many(dict[str, int], "SELECT id, label FROM my_table")
 ```
 
 

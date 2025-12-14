@@ -345,7 +345,7 @@ class Connection:
             finally:
                 self.__iteration_id = None
 
-    @contextmanager  # <async>
+    @contextmanager
     def transaction(self) -> Iterator[None]:  # <async>
         """
         Opens a trasnaction so that any changes caused by any

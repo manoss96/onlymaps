@@ -295,7 +295,7 @@ class ConnectionPool:
     @require_open
     def fetch_one_or_none(  # <async>
         self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
-    ) -> T | None:
+    ) -> T | Any | None:
         """
         Executes the query and returns a single row object of type `T`,
         if the query resulted in such object, else returns `None`.
@@ -316,7 +316,7 @@ class ConnectionPool:
     @require_open
     def fetch_one(  # <async>
         self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
-    ) -> T:
+    ) -> T | Any:
         """
         Executes the query and returns a single row object of type `T`.
 
@@ -337,7 +337,7 @@ class ConnectionPool:
     @require_open
     def fetch_many(  # <async>
         self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
-    ) -> list[T]:
+    ) -> list[T] | list[Any]:
         """
         Executes the query and returns a a list of row objects of type `T`.
 
@@ -363,7 +363,7 @@ class ConnectionPool:
         /,
         *args: Any,
         **kwargs: Any,
-    ) -> Iterator[Iterator[list[T]]]:  # <async>  # <async>
+    ) -> Iterator[Iterator[list[T]] | Iterator[list[Any]]]:  # <async>
         """
         Executes the query and returns an iterator on batches of row objects
         of type `T`. Each batch of rows is loaded into memory during the

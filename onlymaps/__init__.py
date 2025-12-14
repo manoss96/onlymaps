@@ -16,7 +16,7 @@ try:
     import onlymaps.asyncio as _
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
-        "Generate the async API by running `python genasync.py`."
+        "Generate the async API by running `python gen_async.py`."
     ) from exc
 # <ignore>
 

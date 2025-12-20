@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 ### Added
 
 - Oracle databases are now supported via driver `oracledb`. [#5]
+- Added support for `decimal.Decimal` type. [#13]
 - (INTERNAL) `BaseDriver` subclasses can now optionally implement an `init_connection` method which is called right after a `PyDbAPIv2Connection` is created so as to perform any driver specific initializations on said connection. [#5]
 
 
@@ -36,3 +37,4 @@ separate method `__cursor`. [#10]
 [#8]: https://github.com/manoss96/onlymaps/pull/8
 [#10]: https://github.com/manoss96/onlymaps/pull/10
 [#11]: https://github.com/manoss96/onlymaps/pull/11
+[#13]: https://github.com/manoss96/onlymaps/pull/13

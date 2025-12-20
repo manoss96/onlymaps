@@ -7,9 +7,9 @@ This module contains tests related to testing various querying aspects,
 
 import inspect
 import json
-import sys
 import typing
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Literal, Optional, Union
 from uuid import UUID, uuid4
 
@@ -86,7 +86,7 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
                 # NOTE: Due to several databases not providing a dedicated BOOL type,
                 #       a `TypeError` won't be raised when casting bools to integer/floats.
                 case bool() if (
-                    (t is int or t is float)
+                    (t in {int, float, Decimal})
                     and db.driver
                     in {
                         Driver.MY_SQL,
@@ -110,16 +110,36 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
                                 Driver.SQL_LITE,
                             }
                         )
-                        or t is float
+                        or t in {float, Decimal}
                     )
                 ):
                     assert result == t(scalar)
-                # bytes can be cast to strings if `utf-8`-decodable.
-                case bytes() if t is str:
-                    assert result == bytes(scalar).decode("utf-8")
+                case float() if t is Decimal:
+                    assert result == t(scalar)
+                case Decimal() if (
+                    # `oracledb` driver allows for `Decimal` to `int`
+                    # conversion.
+                    (db.driver == Driver.ORACLE_DB and t is int)
+                    or
+                    # Drivers that can natively handle `Decimal` types,
+                    # allow for `Decimal` to `float` conversion.
+                    (db.driver != Driver.SQL_LITE and t is float)
+                    or
+                    # Certain drivers can't handle `Decimal` types,
+                    # so they are converted into strings.
+                    (db.driver == Driver.SQL_LITE and t is str)
+                ):
+                    assert result == t(scalar)
+                # Those drivers who handle `Decimal` objects as strings
+                # must account for the `bytes` case as well.
+                case Decimal() if db.driver == Driver.SQL_LITE and t is bytes:
+                    assert result == str(scalar).encode("utf-8")
                 # Strings can be cast to bytes due to `OnlymapsBytes`.
                 case str() if t is bytes:
                     assert result == str(scalar).encode("utf-8")
+                # bytes can be cast to strings if `utf-8`-decodable.
+                case bytes() if t is str:
+                    assert result == bytes(scalar).decode("utf-8")
                 case UUID() if t is str:
                     assert result == t(scalar)
                 # Since UUIDs can be cast to strings,

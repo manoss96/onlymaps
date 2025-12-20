@@ -347,6 +347,7 @@ In general, when querying a single column, the following types are supported:
 - `bool`
 - `int`
 - `float`
+- `decimal.Decimal`
 - `str`
 - `bytes`
 - `uuid.UUID`

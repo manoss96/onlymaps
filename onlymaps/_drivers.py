@@ -11,6 +11,7 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum, StrEnum
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Self, TypeVar, final
@@ -431,6 +432,22 @@ class SqlLiteDriver(BaseDriver):
         The driver's type.
         """
         return Driver.SQL_LITE
+
+    @override
+    def handle_sql_param(self, param: Any) -> Any:
+        """
+        Some Python types are not supported by certain drivers. This function
+        handles these cases and maps parameters of these types to a type that
+        is supported.
+
+        :param Any param: An SQL query parameter.
+        """
+        match param:
+            # Sqlite3 driver cannot handle `Decimal` objects.
+            case Decimal():
+                return str(param)
+            case _:
+                return super().handle_sql_param(param)
 
     @override
     def handle_sql_result_type(self, t: type) -> type:

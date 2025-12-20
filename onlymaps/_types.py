@@ -7,10 +7,12 @@ This module contains several custom types used to bypass certain driver restrict
 
 import json
 import operator
+import re
 from abc import ABC, abstractmethod
 from dataclasses import Field as DataclassField
 from dataclasses import is_dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from enum import Enum
 from functools import reduce
 from inspect import isclass
@@ -241,6 +243,22 @@ class OnlymapsBool(OnlymapsType[bool]):
         return value
 
 
+class OnlymapsDecimal(OnlymapsType[Decimal]):
+    """
+    This class allows for `str`/`int`/`float` to `decimal.Decimal`
+    conversion.
+    """
+
+    @classmethod
+    def parse_impl(cls, value: Any, *_: type) -> Any:
+        """
+        Parses `int`/`float`/`str` types to `Decimal` objects.
+        """
+        if isinstance(value, (int, float, str)) and not isinstance(value, bool):
+            return Decimal(value)
+        return value
+
+
 class OnlymapsStr(OnlymapsType[str]):
     """
     Converts bytes into strings if utf-8 encodable.
@@ -302,11 +320,15 @@ class OnlymapsDatetime(OnlymapsType[datetime]):
     """
 
     DT_TYPE_ADAPTER = TypeAdapter(datetime, config=ConfigDict(strict=False))
+    RE_NUMBER = re.compile(r"(?:\+|-)?\d+(?:(?:\.|,)\d*)*")
 
     @classmethod
     def parse_impl(cls, value: Any, *_: type) -> Any:
         match value:
-            case str():
+            # NOTE: Only match non-number strings, as a non-strict `TypeAdapter`
+            #       is able to convert simple numbers such as `1` to `datetime`
+            #       objects.
+            case str() if cls.RE_NUMBER.fullmatch(value) is None:
                 return cls.DT_TYPE_ADAPTER.validate_python(value)
             # NOTE: Match for strictly `date`.
             case date() if not isinstance(value, datetime):
@@ -533,6 +555,7 @@ CLASS_MAP: dict[type, type[OnlymapsType]] = {
     # NOTE: Do not include `OnlymapsBool` by default
     #       as many drivers can handle booleans.
     #       Instead, let each driver handle it.
+    Decimal: OnlymapsDecimal,
     str: OnlymapsStr,
     bytes: OnlymapsBytes,
     UUID: OnlymapsUUID,

@@ -8,6 +8,7 @@ that are to be used for testing purposes.
 
 from dataclasses import is_dataclass, make_dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from enum import IntEnum, StrEnum
 from typing import Any, TypeAlias, Union
 from uuid import UUID
@@ -62,6 +63,7 @@ SCALAR_TYPE = Union[
     bool,
     int,
     float,
+    Decimal,
     str,
     bytes,
     UUID,
@@ -172,6 +174,7 @@ def _build_values() -> tuple[list[SCALAR_TYPE], list[ROW_TYPE], type[BaseModel]]
         True,
         1,
         1.0,
+        Decimal("1.0"),
         "Hello",
         b"Hello",
         UUID("3d751e08-dd90-4045-b1ee-7cfd392618a6"),

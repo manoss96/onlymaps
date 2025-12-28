@@ -39,6 +39,7 @@ DRIVERS = [
     Driver.SQL_SERVER,
     Driver.ORACLE_DB,
     Driver.SQL_LITE,
+    Driver.DUCK_DB,
     Driver.UNKNOWN,
 ]
 
@@ -237,6 +238,14 @@ class SqliteContainer(BaseModel):
     dbname: str
 
 
+class DuckDbContainer(BaseModel):
+    """
+    A pseudo Docker container class for DuckDB.
+    """
+
+    dbname: str
+
+
 # NOTE: Define custom MariaDB container since
 #       it is not supported by TestContainers yet.
 class MariaDbContainer(DockerContainer):
@@ -261,6 +270,7 @@ DbContainer: TypeAlias = (
     | SqlServerContainer
     | OracleDbContainer
     | SqliteContainer
+    | DuckDbContainer
 )
 
 
@@ -293,6 +303,8 @@ def get_conn_str_and_kwargs_from_container(
             "timeout": 10000,
         }
         return f"{Driver.SQL_LITE}:///{container.dbname}", kwargs
+    if isinstance(container, DuckDbContainer):
+        return f"{Driver.DUCK_DB}:///{container.dbname}", kwargs
 
     # NOTE: Use `127.0.0.1` instead of `localhost` as some
     #       drivers treat `localhost` as an indication to
@@ -356,7 +368,7 @@ class SQL:
         match driver:
             case Driver.ORACLE_DB:
                 return f":{n if n is not None else 0}"
-            case Driver.SQL_LITE:
+            case Driver.SQL_LITE | Driver.DUCK_DB:
                 return "?"
             case _:
                 return "%s"
@@ -369,6 +381,8 @@ class SQL:
         match driver:
             case Driver.ORACLE_DB | Driver.SQL_LITE:
                 return f":scalar{n if n is not None else ''}"
+            case Driver.DUCK_DB:
+                return f"$scalar{n if n is not None else ''}"
             case _:
                 return f"%(scalar{n if n is not None else ''})s"
 

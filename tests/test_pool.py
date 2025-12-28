@@ -20,8 +20,8 @@ from tests.fixtures.connections import big_pool, connection, pool, small_pool
 from tests.fixtures.executors import Executor
 from tests.utils import DRIVERS, MAX_POOL_SIZE, SQL
 
-# NOTE: Do not incude SQL Server for async tests.
-# <include:DRIVERS = [d for d in DRIVERS if d != Driver.SQL_SERVER]>
+# NOTE: Do not incude SQL Server / DuckDB for async tests.
+# <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB}]>
 
 
 @pytest.mark.parametrize("pool", DRIVERS, indirect=True)
@@ -201,7 +201,8 @@ class TestConnectionPool:  # <replace:class TestAsyncConnectionPool:>
     [
         driver
         for driver in DRIVERS
-        if driver not in {Driver.SQL_SERVER, Driver.ORACLE_DB, Driver.SQL_LITE}
+        if driver
+        not in {Driver.SQL_SERVER, Driver.ORACLE_DB, Driver.SQL_LITE, Driver.DUCK_DB}
     ],
     indirect=True,
 )

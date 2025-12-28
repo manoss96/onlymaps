@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 
     import aiomysql
     import aiosqlite
+    import duckdb
     import mariadb
     import oracledb
     import psycopg
@@ -398,6 +399,15 @@ def get_pydbapiv2_conn_factory_and_driver(
                 "isolation_level": "DEFERRED",
             }
 
+        case Driver.DUCK_DB:
+
+            if TYPE_CHECKING:
+                module = duckdb
+            else:
+                module = try_import_module("duckdb")
+
+            kwargs |= {"database": database}
+
     conn_factory: PyDbAPIv2ConnectionFactory = partial(module.connect, **kwargs)
     driver_instance = driver_factory(
         driver, module.apilevel, module.threadsafety, module.paramstyle
@@ -517,9 +527,6 @@ def get_async_pydbapiv2_conn_factory_and_driver(
                 "tcp_connect_timeout": connect_timeout,
             }
 
-        case Driver.SQL_SERVER:  # pragma: no cover
-            raise Error.create_async_not_supported_error("MS SQL Server")
-
         case Driver.SQL_LITE:
 
             if TYPE_CHECKING:
@@ -539,6 +546,12 @@ def get_async_pydbapiv2_conn_factory_and_driver(
                 "check_same_thread": kwargs.pop("check_same_thread", not pooling),
                 "isolation_level": "DEFERRED",
             }
+
+        case Driver.SQL_SERVER:  # pragma: no cover
+            raise Error.create_async_not_supported_error("MS SQL Server")
+
+        case Driver.DUCK_DB:  # pragma: no cover
+            raise Error.create_async_not_supported_error("DuckDB")
 
         case Driver.UNKNOWN:  # pragma: no cover
             raise ValueError(f"Unknown driver: `{driver}`")

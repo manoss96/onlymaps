@@ -42,6 +42,9 @@ pymssql = [
 oracledb = [
   "oracledb == 3.4.1"
 ]
+duckdb = [
+  "duckdb == 1.4.3"
+]
 aiomysql = [
   "aiomysql == 0.3.2"
 ]
@@ -56,6 +59,7 @@ all = [
   "mariadb == 1.1.14",
   "pymssql == 2.3.8",
   "oracledb == 3.4.1",
+  "duckdb == 1.4.3",
   "aiomysql == 0.3.2",
   "aiosqlite == 0.21.0"
 ]

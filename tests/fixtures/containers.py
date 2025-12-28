@@ -14,6 +14,7 @@ from time import sleep
 from typing import Iterator
 from uuid import uuid4
 
+import duckdb
 import pytest
 from pytest import FixtureRequest
 from testcontainers.mssql import SqlServerContainer
@@ -25,6 +26,7 @@ from onlymaps._drivers import Driver
 from tests.utils import (
     SQL,
     DbContainer,
+    DuckDbContainer,
     MariaDbContainer,
     SqliteContainer,
     get_request_param,
@@ -187,6 +189,18 @@ def sqlite_container() -> Iterator[SqliteContainer]:
     os.remove(db)
 
 
+@pytest.fixture(scope="session")
+def duckdb_container() -> Iterator[DuckDbContainer]:
+
+    # NOTE: Use special name `:memory:` to create an in-memory database.
+    #       See: https://duckdb.org/docs/stable/clients/python/dbapi#in-memory-connection
+    db = ":memory:testdb"
+
+    with duckdb.connect(database=db) as conn:
+        conn.execute(SQL.CREATE_TEST_TABLE)
+        yield DuckDbContainer(dbname=db)
+
+
 @pytest.fixture(scope="function")
 def db_container(request: FixtureRequest) -> DbContainer:
     """
@@ -210,6 +224,8 @@ def db_container(request: FixtureRequest) -> DbContainer:
             container = "oracledb_container"
         case Driver.SQL_LITE:
             container = "sqlite_container"
+        case Driver.DUCK_DB:
+            container = "duckdb_container"
         case _:  # pragma: no cover
             raise ValueError(f"Invalid driver: `{param}`")
 

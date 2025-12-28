@@ -47,6 +47,7 @@ class Driver(StrEnum):
     MARIA_DB = "mariadb"
     ORACLE_DB = "oracledb"
     SQL_LITE = "sqlite"
+    DUCK_DB = "duckdb"
     UNKNOWN = "?"
 
 
@@ -104,11 +105,22 @@ class BaseDriver(ABC):
         The driver's type.
         """
 
-    def init_connection(self, _: Any) -> None:
+    def init_connection(self, conn: Any) -> Any:
         """
         This function is used to perform any driver-specific
         initialization logic right after the instantiation of
-        a PyDbAPIv2 connection.
+        a PyDbAPIv2 connection. Returns the now-initialized
+        connection.
+
+        :param Any conn: A PyDbAPIv2-compatible connection object.
+        """
+        return conn
+
+    def init_transaction(self, _: Any) -> None:
+        """
+        This function is used to perform any driver-specific
+        initialization logic right before the execution of a
+        transaction.
 
         :param Any conn: A PyDbAPIv2-compatible connection object.
         """
@@ -263,7 +275,7 @@ class MySqlDriver(BaseDriver):
         :param int idx: The column's index.
         :param list[str] colnames: The column name to be fixed.
         """
-        # NOTE: Due to MySQL driver returning the expression itself
+        # NOTE: Due to the MySQL driver returning the expression itself
         #       as the column name if one was not provided, there is
         #       no way to know whether a name was provided or not.
         return colname
@@ -371,11 +383,12 @@ class OracleDbDriver(BaseDriver):
         return Driver.ORACLE_DB
 
     @override
-    def init_connection(self, conn: Any) -> None:
+    def init_connection(self, conn: Any) -> Any:
         """
         This function is used to perform any driver-specific
         initialization logic right after the instantiation of
-        a PyDbAPIv2 connection.
+        a PyDbAPIv2 connection. Returns the now-initialized
+        connection.
 
         :param Any conn: A PyDbAPIv2-compatible connection object.
         """
@@ -401,6 +414,7 @@ class OracleDbDriver(BaseDriver):
             return None
 
         setattr(conn, "inputtypehandler", query_param_handler)
+        return conn
 
     @staticmethod
     def std_colname(idx: int, colname: str) -> str:
@@ -469,7 +483,108 @@ class SqlLiteDriver(BaseDriver):
         :param int idx: The column's index.
         :param list[str] colnames: The column name to be fixed.
         """
+        # NOTE: Due to the DuckDB driver returning the expression itself
+        #       as the column name if one was not provided, there is
+        #       no way to know whether a name was provided or not.
         return colname if colname != "?" else f"c{idx}"
+
+
+class DuckDbDriver(BaseDriver):
+    """
+    This class represents the underlying driver to a DuckDb
+    database and is used to handle driver-specific issues.
+    """
+
+    @property
+    def tag(self) -> Driver:
+        """
+        The driver's type.
+        """
+        return Driver.DUCK_DB
+
+    @override
+    def init_connection(self, conn: Any) -> Any:
+        """
+        This function is used to perform any driver-specific
+        initialization logic right after the instantiation of
+        a PyDbAPIv2 connection. Returns the now-initialized
+        connection.
+
+        :param Any conn: A PyDbAPIv2-compatible connection object.
+
+        :NOTE: Due to the way `DuckDb` works, there is no distinction between
+            a connection and a cursor, with the connection class taking on the
+            responsibility of both. This means that method `cursor` on the connection
+            class actually returns a connection object as well. Seeing that calling
+            `cursor` for every query execution carries some performance overhead,
+            as well as certain issues regarding transaction isolation, this function
+            defines certain classes in order to be able to integrate DuckDb connections
+            with the existing connection/cursor based API without having any issues.
+        """
+
+        class DuckDbCursorWrapper:
+            """
+            This is a wrapper class for the DuckDb connection that
+            is to be handled as a cursor. All member access delegates
+            to the underlying DuckDb connection, except for `close`,
+            which goes on to do nothing, as `cursor.close()` should not
+            result in the DuckDb connection being closed.
+            """
+
+            def __init__(self, conn: Any) -> None:
+                self.__conn = conn
+
+            def __getattr__(self, name: str) -> Any:
+                match name:
+                    case "close":
+                        return lambda: None
+                    case _:
+                        return getattr(self.__conn, name)
+
+        class DuckDbConnectionWrapper:
+            """
+            This is a wrapper class for the DuckDb connection that
+            is to be handled as an actual connection. All member
+            access delegates to the underlying DuckDb connection,
+            except for `cursor`, which goes on to return the underlying
+            connection wrapped within `DuckDbCursorWrapper`.
+            result in the DuckDb connection being closed.
+            """
+
+            def __init__(self, conn: Any) -> None:
+                self.__conn = conn
+
+            def __getattr__(self, name: str) -> Any:
+                match name:
+                    case "cursor":
+                        return lambda: DuckDbCursorWrapper(self.__conn)
+                    case _:
+                        return getattr(self.__conn, name)
+
+        return DuckDbConnectionWrapper(conn)
+
+    @override
+    def init_transaction(self, conn: Any) -> None:
+        """
+        This function is used to perform any driver-specific
+        initialization logic right before the execution of a
+        transaction.
+
+        :param Any conn: A PyDbAPIv2-compatible connection object.
+        """
+        begin: Callable[[], None] = getattr(conn, "begin")
+        begin()
+
+    @staticmethod
+    def std_colname(idx: int, colname: str) -> str:
+        """
+        Assigns a unique column name to the provided column
+        name if it was not explicitly set by the user.
+
+        :param int idx: The column's index.
+        :param list[str] colnames: The column name to be fixed.
+        """
+        return colname
 
 
 class UnknownDriver(BaseDriver):
@@ -532,6 +647,8 @@ def driver_factory(
             factory = OracleDbDriver
         case Driver.SQL_LITE:
             factory = SqlLiteDriver
+        case Driver.DUCK_DB:
+            factory = DuckDbDriver
         case Driver.UNKNOWN:  # pragma: no cover
             factory = UnknownDriver
 

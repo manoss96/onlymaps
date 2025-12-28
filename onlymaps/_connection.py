@@ -208,6 +208,8 @@ class Connection:
             )
 
             try:
+                if not self.__in_transaction:
+                    self.__driver.init_transaction(self.__conn)
                 yield cursor
                 is_query_successful = True
             except:
@@ -368,6 +370,7 @@ class Connection:
         with self.__cursor_lock:  # <async>
             try:
                 self.__transaction_id = self.__context_id
+                self.__driver.init_transaction(self.__conn)
                 yield
                 self.__conn.commit()  # <await>
             except:
@@ -398,8 +401,9 @@ class Connection:
                 raise Error.DbOpenConnection
 
             try:
-                self.__conn = self.__conn_factory()  # <await>
-                self.__driver.init_connection(self.__conn)
+                self.__conn = self.__driver.init_connection(
+                    self.__conn_factory()  # <await>
+                )
                 self.__is_open = True
             except:
                 self.__is_open = False

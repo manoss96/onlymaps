@@ -8,7 +8,7 @@ All notable changes to this project are documented in this file.
 - Oracle databases are now supported via driver `oracledb`. [#5]
 - DuckDB databases are now supported via driver `duckdb`. [#14]
 - Added support for `decimal.Decimal` type. [#13]
-- (INTERNAL) `BaseDriver` subclasses can now optionally implement an `init_connection` method which is called right after a `PyDbAPIv2Connection` is created so as to perform any driver-specific initialization steps on said connection. [#5,#14]
+- (INTERNAL) `BaseDriver` subclasses can now optionally implement an `init_connection` method which is called right after a `PyDbAPIv2Connection` is created so as to perform any driver-specific initialization steps on said connection. [#5], [#14]
 - (INTERNAL) `BaseDriver` subclasses can now optionally implement an `init_transaction` method which is called right before a
 transaction is to be started so as to perform any driver-specific initialization steps regarding the transaction. [#14]
 

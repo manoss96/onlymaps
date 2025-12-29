@@ -368,7 +368,7 @@ In general, when querying a single column, the following types are supported:
 
 Things are a bit different when querying multiple columns, as the type you must use
 should always be some sorts of struct type which is able to contain more than one
-types of data:
+type of data:
 
 ```python
 rows: list[tuple] = db.fetch_many(tuple, "SELECT id, label FROM my_table")

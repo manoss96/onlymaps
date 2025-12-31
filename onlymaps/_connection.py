@@ -234,10 +234,10 @@ class Connection:
         Executes the given SQL query.
 
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -255,10 +255,10 @@ class Connection:
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -275,10 +275,10 @@ class Connection:
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises ValueError: No row object was found to return.
         :raises RuntimeError: Connection is not open.
@@ -296,10 +296,10 @@ class Connection:
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -324,10 +324,10 @@ class Connection:
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param int size: The number of rows each batch contains.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """

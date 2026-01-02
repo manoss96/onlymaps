@@ -12,7 +12,7 @@ objects. More specifically, it provides:
 
 - A minimal API that enables both sync and async query execution.
 - Fine-grained type-hinting and validation with the help of [Pydantic](https://docs.pydantic.dev/latest/).
-- Support for all major databases such as PostgreSQL, MySQL, MariaDB and MS SQL Server.
+- Support for all major databases such as PostgreSQL, MySQL, MariaDB, MS SQL Server and more.
 - Connection pooling via custom implementation.
 
 ## How to install 📦
@@ -56,7 +56,7 @@ with connect("postgresql://user:password@localhost:5432/mydb") as db:
     # Execute queries...
 ```
 
-Similarly, `onlymaps.asyncio.connect` gives access to the `AsyncDatabase` API:
+Similarly, `onlymaps.asyncio.connect` gives access to its async counterpart, namely `AsyncDatabase`:
 
 ```python
 from onlymaps.asyncio import connect
@@ -160,7 +160,7 @@ a connection pool with an adequate number of connections, where each thread
 can get its own connection from the pool.
 
 The same is true for the async variants as well. Both the async connection and the
-async connection pool can be considered reentrant, as long as they are not accessed
+async connection pool can be considered concurrency-safe, as long as they are not accessed
 outside the event loop in which they were created. When it comes to their performance,
 connection pooling is again the right choice for a heavily concurrent application,
 for example an ASGI web server.
@@ -201,7 +201,7 @@ class User(BaseModel):
 users: list[User] = db.fetch_many(User, "SELECT name, age FROM users")
 ```
 
-Even though the above example uses a pydantic model, you are not required to use one.
+Even though the above example uses a Pydantic model, you are not required to use one.
 In fact, you can use any type you like as long as it matches the query result you are
 expecting:
 
@@ -317,8 +317,8 @@ exits successfully, all changes are persisted.
 
 ### Mapping query results
 
-In order to understand how rows are mapped to Python objects, we should first
-make the distinction of querying a single column versus querying multiple columns.
+In order to better understand how rows are mapped to Python objects, it is crucial
+that we make the distinction between querying a single column and querying multiple columns.
 
 ##### Single-column queries
 

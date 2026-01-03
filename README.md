@@ -7,7 +7,7 @@
 
 
 Onlymaps is a Python micro-ORM library that lets you interact with a database
-through plain SQL queries while it takes care of mapping the results back to Python
+through plain SQL while it takes care of mapping any query results back to Python
 objects. More specifically, it provides:
 
 - A minimal API that enables both sync and async query execution.
@@ -202,8 +202,7 @@ users: list[User] = db.fetch_many(User, "SELECT name, age FROM users")
 ```
 
 Even though the above example uses a Pydantic model, you are not required to use one.
-In fact, you can use any type you like as long as it matches the query result you are
-expecting:
+In fact, you can use any type you like as long as it matches the result you are expecting:
 
 ```python
 users: list[tuple[str, int]] = db.fetch_many(tuple[str, int], "SELECT name, age FROM users")
@@ -285,7 +284,8 @@ db.exec("INSERT INTO my_table (col_a, col_b) VALUES (%s, %s)", Json(ids), Json(k
 Both `ids` and `kv_pairs` are converted into JSON-compatible strings, which are then inserted
 into the table columns `col_a` and `col_b` respectively.
 
-Other than `Json`, there exists one more parameter wrapper class, namely `Bulk`, which in turn indicates that the provided argument is to be executed as part of a bulk statement:
+Other than `Json`, there exists one more parameter wrapper class, namely `Bulk`, which in turn indicates
+that the provided argument is to be executed as part of a bulk statement:
 
 ```python
 from onlymaps import Bulk

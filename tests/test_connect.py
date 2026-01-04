@@ -17,7 +17,7 @@ from tests.fixtures.connections import db, dbapiv2
 from tests.fixtures.containers import db_container
 from tests.utils import DRIVERS, DbContainer, get_conn_str_and_kwargs_from_container
 
-# NOTE: Do not incude SQL Server / DuckDB for async tests.
+# NOTE: Exclude certain drivers from async tests.
 # <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB}]>
 
 

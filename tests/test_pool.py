@@ -20,7 +20,7 @@ from tests.fixtures.connections import big_pool, connection, pool, small_pool
 from tests.fixtures.executors import Executor
 from tests.utils import DRIVERS, MAX_POOL_SIZE, SQL
 
-# NOTE: Do not incude SQL Server / DuckDB for async tests.
+# NOTE: Exclude certain drivers from async tests.
 # <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB}]>
 
 
@@ -132,7 +132,7 @@ class TestConnectionPool:  # <replace:class TestAsyncConnectionPool:>
 
         assert exc_info.value == Error.PoolIteratorNotAllowed
 
-    def test_connection_pool_on_multuple_iter_allowed(  # <async>
+    def test_connection_pool_on_multiple_iter_allowed(  # <async>
         self, pool: ConnectionPool, executor: Executor
     ) -> None:
         """

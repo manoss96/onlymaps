@@ -19,7 +19,7 @@ from tests.utils import DRIVERS, SQL
 
 # <include:from tests.utils import Driver>
 
-# NOTE: Do not incude SQL Server / DuckDB for async tests.
+# NOTE: Exclude certain drivers from async tests.
 # <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB}]>
 
 

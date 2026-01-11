@@ -1,6 +1,32 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## 0.2.0 [2026-01-11]
+
+### Added
+
+- Oracle databases are now supported via driver `oracledb`. [#5]
+- DuckDB databases are now supported via driver `duckdb`. [#14]
+- Added support for `decimal.Decimal` type. [#13]
+- (INTERNAL) `BaseDriver` subclasses can now optionally implement an `init_connection` method which is called right after a `PyDbAPIv2Connection` is created so as to perform any driver-specific initialization steps on said connection. [#5], [#14]
+- (INTERNAL) `BaseDriver` subclasses can now optionally implement an `init_transaction` method which is called right before a
+transaction is to be started so as to perform any driver-specific initialization steps regarding the transaction. [#14]
+
+
+### Changed
+
+- (INTERNAL) Renamed certain functions to better convey their meaning. [#5]
+- (INTERNAL) Simplified method `onlymaps._connection.Connection._safe_cursor` by moving the cursor-obtaining logic into a
+separate method `__cursor`. [#10]
+- (INTERNAL) Added private method `onlymaps._connection.Connection.__close` so as to remove duplicated logic. [#10]
+- (INTERNAL) Minor code improvements and fixes in `onlymaps._utils.py` and `tests.utils.py`. [#11]
+
+### Fixed
+
+- Bug that resulted in query parameters not being properly handled when wrapped within
+  `Bulk`. [#8]
+
+
 ## 0.1.1 [2025-11-26]
 
 ### Fixed
@@ -9,5 +35,10 @@ All notable changes to this project are documented in this file.
       
 
 
-
+[#5]: https://github.com/manoss96/onlymaps/pull/5
 [#6]: https://github.com/manoss96/onlymaps/pull/6
+[#8]: https://github.com/manoss96/onlymaps/pull/8
+[#10]: https://github.com/manoss96/onlymaps/pull/10
+[#11]: https://github.com/manoss96/onlymaps/pull/11
+[#13]: https://github.com/manoss96/onlymaps/pull/13
+[#14]: https://github.com/manoss96/onlymaps/pull/14

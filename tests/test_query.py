@@ -7,9 +7,9 @@ This module contains tests related to testing various querying aspects,
 
 import inspect
 import json
-import sys
 import typing
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Literal, Optional, Union
 from uuid import UUID, uuid4
 
@@ -34,8 +34,8 @@ from tests.utils import (
     handle_scalar_param,
 )
 
-# NOTE: Do not incude SQL Server for async tests.
-# <include:DRIVERS = [d for d in DRIVERS if d != Driver.SQL_SERVER]>
+# NOTE: Exclude certain drivers from async tests.
+# <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB}]>
 
 
 @pytest.mark.parametrize("pooling", [False, True])
@@ -86,7 +86,7 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
                 # NOTE: Due to several databases not providing a dedicated BOOL type,
                 #       a `TypeError` won't be raised when casting bools to integer/floats.
                 case bool() if (
-                    (t is int or t is float)
+                    (t in {int, float, Decimal})
                     and db.driver
                     in {
                         Driver.MY_SQL,
@@ -110,16 +110,36 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
                                 Driver.SQL_LITE,
                             }
                         )
-                        or t is float
+                        or t in {float, Decimal}
                     )
                 ):
                     assert result == t(scalar)
-                # bytes can be cast to strings if `utf-8`-decodable.
-                case bytes() if t is str:
-                    assert result == bytes(scalar).decode("utf-8")
+                case float() if t is Decimal:
+                    assert result == t(scalar)
+                case Decimal() if (
+                    # `oracledb` driver allows for `Decimal` to `int`
+                    # conversion.
+                    (db.driver == Driver.ORACLE_DB and t is int)
+                    or
+                    # Drivers that can natively handle `Decimal` types,
+                    # allow for `Decimal` to `float` conversion.
+                    (db.driver != Driver.SQL_LITE and t is float)
+                    or
+                    # Certain drivers can't handle `Decimal` types,
+                    # so they are converted into strings.
+                    (db.driver == Driver.SQL_LITE and t is str)
+                ):
+                    assert result == t(scalar)
+                # Those drivers who handle `Decimal` objects as strings
+                # must account for the `bytes` case as well.
+                case Decimal() if db.driver == Driver.SQL_LITE and t is bytes:
+                    assert result == str(scalar).encode("utf-8")
                 # Strings can be cast to bytes due to `OnlymapsBytes`.
                 case str() if t is bytes:
                     assert result == str(scalar).encode("utf-8")
+                # bytes can be cast to strings if `utf-8`-decodable.
+                case bytes() if t is str:
+                    assert result == bytes(scalar).decode("utf-8")
                 case UUID() if t is str:
                     assert result == t(scalar)
                 # Since UUIDs can be cast to strings,
@@ -332,6 +352,94 @@ class TestQuery:  # <replace:class TestAsyncQuery:>
         with pytest.raises(TypeError):
             query = SQL.SELECT_SINGLE_SCALAR(db.driver)
             db.fetch_one(int, query, "a")  # <await>
+
+    def test_query_on_complex_bulk_with_sequence_args(  # <async>
+        self, db: Database
+    ) -> None:
+        """
+        Tests whether arguments are properly handled when wrapped
+        within a `Bulk` argument containing sequence arguments.
+        """
+
+        if db.driver in {Driver.SQL_SERVER, Driver.ORACLE_DB}:
+            pytest.skip(
+                reason="Temporary tables not supported or need different syntax."
+            )
+
+        tmp_table = "tmp_table"
+        c1, c2 = "c1", "c2"
+
+        db.exec(  # <await>
+            f"""
+            CREATE TEMPORARY TABLE {tmp_table} (
+                {c1} VARCHAR(100),
+                {c2} VARCHAR(100)
+            )
+            """
+        )
+
+        class PydanticModel(BaseModel):
+            """
+            A simple pydantic model class.
+            """
+
+            n: int
+
+        params = [[Json([i]), PydanticModel(n=i)] for i in range(5)]
+
+        plchld_1 = SQL.placeholder(db.driver, n=1)
+        plchld_2 = SQL.placeholder(db.driver, n=2)
+
+        # Asserts no exception is raised.
+        db.exec(  # <await>
+            f"INSERT INTO {tmp_table}({c1}, {c2}) VALUES({plchld_1}, {plchld_2})",
+            Bulk(params),
+        )
+
+    def test_query_on_complex_bulk_with_mapping_args(  # <async>
+        self, db: Database
+    ) -> None:
+        """
+        Tests whether arguments are properly handled when wrapped
+        within a `Bulk` argument containing mapping arguments.
+        """
+
+        if db.driver in {Driver.SQL_SERVER, Driver.ORACLE_DB}:
+            pytest.skip(
+                reason="Temporary tables not supported or need different syntax."
+            )
+
+        tmp_table = "tmp_table"
+        c1, c2 = "c1", "c2"
+
+        db.exec(  # <await>
+            f"""
+            CREATE TEMPORARY TABLE {tmp_table} (
+                {c1} VARCHAR(100),
+                {c2} VARCHAR(100)
+            )
+            """
+        )
+
+        class PydanticModel(BaseModel):
+            """
+            A simple pydantic model class.
+            """
+
+            n: int
+
+        params = [
+            {"scalar1": Json([i]), "scalar2": PydanticModel(n=i)} for i in range(5)
+        ]
+
+        plchld_1 = SQL.kw_placeholder(db.driver, n=1)
+        plchld_2 = SQL.kw_placeholder(db.driver, n=2)
+
+        # Asserts no exception is raised.
+        db.exec(  # <await>
+            f"INSERT INTO {tmp_table}({c1}, {c2}) VALUES({plchld_1}, {plchld_2})",
+            Bulk(params),
+        )
 
     @pytest.mark.parametrize("method", ["fetch_one", "fetch_one_or_none", "fetch_many"])
     def test_query_on_bulk_param(self, db: Database, method: str) -> None:  # <async>

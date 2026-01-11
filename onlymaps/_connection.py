@@ -61,6 +61,7 @@ class Connection:
         self.__driver = driver if driver else UnknownDriver.create()
         self.__handle_broken_conn = handle_broken_conn
         self.__cursor_lock = Lock()
+        self.__open_lock = Lock()
         self.__iter_lock = Lock()
         self.__is_open = False
         self.__iteration_id: int | None = None
@@ -200,56 +201,31 @@ class Connection:
         if acquire_lock:
             self.__cursor_lock.acquire()  # <await>
 
-        if self.__handle_broken_conn and not self.__in_transaction:
-            try:
-                # Both obtain a cursor and ping the database by
-                # executing a no-result query to ensure that the
-                # connection has not been closed.
-                # fmt: off
-                cursor = (
-                    self.__conn.cursor()  # <replace:await co_exec(self.__conn.cursor)>
-                )
-                # fmt: on
-                cursor.execute("SELECT 1 WHERE FALSE")  # <await>
-            except:  # pylint: disable=bare-except
-                try:
-                    # The connection is likely to be already closed
-                    # at this point, though an attempt to close it
-                    # doesn't hurt!
-                    self.__conn.close()  # <replace:await co_exec(self.__conn.close)>
-                except:  # pylint: disable=bare-except
-                    pass
-                self.__conn = self.__conn_factory()  # <await>
-                # fmt: off
-                cursor = (
-                    self.__conn.cursor()  # <replace:await co_exec(self.__conn.cursor)>
-                )
-                # fmt: on
-        else:
-            # fmt: off
-            cursor = (
-                self.__conn.cursor() # <replace:await co_exec(self.__conn.cursor)>
-            )
-            # fmt: on
-
         try:
-            yield cursor
-            is_query_successful = True
-        except:
-            is_query_successful = False
-            if not self.__in_transaction:
-                self.__conn.rollback()  # <await>
-            raise
-        finally:
+
+            cursor = self.__cursor(  # <await>
+                test_connection=self.__handle_broken_conn and not self.__in_transaction
+            )
+
             try:
-                cursor.close()  # <await>
+                if not self.__in_transaction:
+                    self.__driver.init_transaction(self.__conn)
+                yield cursor
+                is_query_successful = True
+            except:
+                is_query_successful = False
+                if not self.__in_transaction:
+                    self.__conn.rollback()  # <await>
+                raise
+            finally:
+                cursor.close()  # <replace:await co_exec(cursor.close)>
                 # Commit only if query execution was successful
                 # and not in the middle of a transaction.
                 if is_query_successful and not self.__in_transaction:
                     self.__conn.commit()  # <await>
-            finally:
-                if acquire_lock:
-                    self.__cursor_lock.release()
+        finally:
+            if acquire_lock:
+                self.__cursor_lock.release()
 
     @require_open
     @__require_not_iter_same_ctx
@@ -258,10 +234,10 @@ class Connection:
         Executes the given SQL query.
 
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -279,10 +255,10 @@ class Connection:
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -299,10 +275,10 @@ class Connection:
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises ValueError: No row object was found to return.
         :raises RuntimeError: Connection is not open.
@@ -320,10 +296,10 @@ class Connection:
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -348,10 +324,10 @@ class Connection:
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param int size: The number of rows each batch contains.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -371,7 +347,7 @@ class Connection:
             finally:
                 self.__iteration_id = None
 
-    @contextmanager  # <async>
+    @contextmanager
     def transaction(self) -> Iterator[None]:  # <async>
         """
         Opens a trasnaction so that any changes caused by any
@@ -394,6 +370,7 @@ class Connection:
         with self.__cursor_lock:  # <async>
             try:
                 self.__transaction_id = self.__context_id
+                self.__driver.init_transaction(self.__conn)
                 yield
                 self.__conn.commit()  # <await>
             except:
@@ -416,15 +393,17 @@ class Connection:
         if self.__is_open:
             raise Error.DbOpenConnection
 
-        # Re-check om avoid the case where two or
-        # more threads call `open` at the same time
+        # Re-check if open to avoid the case where two
+        # or more threads call `open` at the same time
         # waiting for the lock.
-        with self.__cursor_lock:  # <async>
+        with self.__open_lock:  # <async>
             if self.__is_open:
                 raise Error.DbOpenConnection
 
             try:
-                self.__conn = self.__conn_factory()  # <await>
+                self.__conn = self.__driver.init_connection(
+                    self.__conn_factory()  # <await>
+                )
                 self.__is_open = True
             except:
                 self.__is_open = False
@@ -445,6 +424,53 @@ class Connection:
             if not self.__is_open:
                 raise Error.DbClosedConnection
 
-            self.__is_open = False
+            self.__close()  # <await>
 
-            self.__conn.close()  # <replace:await co_exec(self.__conn.close)>
+    def __close(self) -> None:  # <async>
+        """
+        Closes the underlying connection to the database.
+
+        :NOTE: This function does not aquire a lock and must be
+            called while `self.__cursor_lock` has been acquired.
+        """
+        self.__is_open = False
+        self.__conn.close()  # <replace:await co_exec(self.__conn.close)>
+
+    def __cursor(self, test_connection: bool) -> PyDbAPIv2Cursor:  # <async>
+        """
+        Obtains a cursor from the underlying connection and returns it.
+
+        :param bool test_connection: If set to `True`, then the connection is tested
+            before returning a cursor in order to ensure it's not broken or closed
+            by the database, in which case a new connection is established which is
+            used to obtain the returned cursor.
+        """
+        if test_connection:
+            try:
+                # Obtain a cursor and test the connection.
+                cursor = (
+                    self.__conn.cursor()  # <replace:await co_exec(self.__conn.cursor)>
+                )
+                cursor.execute("SELECT 1 WHERE FALSE")  # <await>
+            except:  # pylint: disable=bare-except
+                try:
+                    # NOTE: The connection is likely to be already closed
+                    # at this point, though an attempt to close it
+                    # doesn't hurt!
+                    self.__close()  # <await>
+                except:  # pylint: disable=bare-except
+                    pass
+                finally:
+                    self.open()  # <await>
+                    test_connection = False
+
+        # Only acquire a cursor if no testing has occurred or
+        # if the testing actually failed.
+        if not test_connection:
+            # fmt: off
+            cursor = (
+                self.__conn.cursor() # <replace:await co_exec(self.__conn.cursor)>
+            )
+            # fmt: on
+
+        return cursor

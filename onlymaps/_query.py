@@ -181,10 +181,14 @@ class Query:
             nonlocal is_bulk
             match param:
                 case Bulk():
+
                     if not allow_bulk:
                         raise ValueError("Use method `exec` for bulk statements.")
+
                     is_bulk = True
-                    return param.value
+
+                    return param.get_mapped_value(self.__driver.handle_sql_param)
+
                 case _ if is_bulk:
                     raise ValueError(
                         "Cannot provide additional parameters in `_bulk` mode."
@@ -254,14 +258,14 @@ class Query:
 
             if cursor.description and _type is not NoneType:
 
-                adapter, map_to_original = self.__driver.handle_sql_result_type(
+                adapter, inverse_map = self.__driver.get_adapter_and_inverse_map(
                     cast(Hashable, _type)
                 )
 
                 def deser(obj: Any) -> T:
                     try:
                         parsed = adapter.validate_python(obj, strict=STRICT_MODE)
-                        return cast(T, map_to_original(parsed))
+                        return cast(T, inverse_map(parsed))
                     except ValidationError as exc:
                         err = exc.errors()[0]
                         err_msg = err["msg"]

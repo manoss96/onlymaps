@@ -10,9 +10,11 @@ parameters and their results.
 import json
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
+from datetime import datetime
+from decimal import Decimal
 from enum import Enum, StrEnum
 from functools import lru_cache
-from typing import Any, Callable, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Self, TypeVar, final
 from uuid import UUID
 
 from pydantic import BaseModel, TypeAdapter
@@ -22,6 +24,14 @@ from typing_extensions import override
 
 from onlymaps._params import Json
 from onlymaps._types import OnlymapsBool, OnlymapsType
+
+if TYPE_CHECKING:
+    import oracledb
+else:
+    try:
+        import oracledb
+    except ImportError:
+        pass
 
 T = TypeVar("T")
 
@@ -35,7 +45,9 @@ class Driver(StrEnum):
     MY_SQL = "mysql"
     SQL_SERVER = "mssql"
     MARIA_DB = "mariadb"
+    ORACLE_DB = "oracledb"
     SQL_LITE = "sqlite"
+    DUCK_DB = "duckdb"
     UNKNOWN = "?"
 
 
@@ -93,6 +105,27 @@ class BaseDriver(ABC):
         The driver's type.
         """
 
+    def init_connection(self, conn: Any) -> Any:
+        """
+        This function is used to perform any driver-specific
+        initialization logic right after the instantiation of
+        a PyDbAPIv2 connection. Returns the now-initialized
+        connection.
+
+        :param Any conn: A PyDbAPIv2-compatible connection object.
+        """
+        return conn
+
+    def init_transaction(self, _: Any) -> None:
+        """
+        This function is used to perform any driver-specific
+        initialization logic right before the execution of a
+        transaction.
+
+        :param Any conn: A PyDbAPIv2-compatible connection object.
+        """
+        return None
+
     def handle_sql_param(self, param: Any) -> Any:
         """
         Some Python types are not supported by certain drivers. This function
@@ -119,10 +152,21 @@ class BaseDriver(ABC):
             case _:
                 return param
 
+    def handle_sql_result_type(self, t: type) -> type:
+        """
+        Some SQL query results are returned in different formats by certain
+        drivers. This can be overridden by a driver class so as to handle
+        these cases.
+
+        :param type t: The type that is to be mapped.
+        """
+        return t
+
     # NOTE: Add LRU caching as type mapping can be expensive,
     #       especially for deeply nested model types.
+    @final
     @lru_cache(maxsize=256)
-    def handle_sql_result_type(
+    def get_adapter_and_inverse_map(
         self, t: type[T]
     ) -> tuple[TypeAdapter, Callable[[Any], T]]:
         """
@@ -138,20 +182,10 @@ class BaseDriver(ABC):
 
         :param type t: The type that is to be mapped.
         """
-        custom_type, map_to_original = OnlymapsType.factory(
-            t=t, field_type_mapper=self._handle_sql_result_type_impl
+        custom_type, inverse_map = OnlymapsType.factory(
+            t=t, field_type_mapper=self.handle_sql_result_type
         )
-        return (TypeAdapter(custom_type), map_to_original)
-
-    @abstractmethod
-    def _handle_sql_result_type_impl(self, t: type) -> type:
-        """
-        Some SQL query results are returned in different formats by certain
-        drivers. This function handles these cases by using custom type wrappers
-        which are capable of mapping sad results to their original type.
-
-        :param type t: The type that is to be mapped.
-        """
+        return (TypeAdapter(custom_type), inverse_map)
 
     @staticmethod
     @abstractmethod
@@ -167,8 +201,8 @@ class BaseDriver(ABC):
 
 class PostgresDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to a PostgreSQL
+    database and is used to handle driver-specific issues.
     """
 
     @property
@@ -177,16 +211,6 @@ class PostgresDriver(BaseDriver):
         The driver's type.
         """
         return Driver.POSTGRES
-
-    def _handle_sql_result_type_impl(self, t: type) -> type:
-        """
-        Some SQL query results are returned in different formats by certain
-        drivers. This function handles these cases by using custom type wrappers
-        which are capable of mapping sad results to their original type.
-
-        :param type t: The type that is to be mapped.
-        """
-        return t
 
     @staticmethod
     def std_colname(idx: int, colname: str) -> str:
@@ -202,8 +226,8 @@ class PostgresDriver(BaseDriver):
 
 class MySqlDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to a MySQL
+    database and is used to handle driver-specific issues.
     """
 
     @property
@@ -231,17 +255,16 @@ class MySqlDriver(BaseDriver):
             case _:
                 return super().handle_sql_param(param)
 
-    def _handle_sql_result_type_impl(self, t: type) -> type:
+    @override
+    def handle_sql_result_type(self, t: type) -> type:
         """
-        Some SQL query results are returned in different formats by certain
-        drivers. This function handles these cases by using custom type wrappers
-        which are capable of mapping sad results to their original type.
+        Maps `bool` types to `OnlymapsBool`.
 
         :param type t: The type that is to be mapped.
         """
         if t is bool:
             return OnlymapsBool
-        return t
+        return super().handle_sql_result_type(t)
 
     @staticmethod
     def std_colname(idx: int, colname: str) -> str:
@@ -252,7 +275,7 @@ class MySqlDriver(BaseDriver):
         :param int idx: The column's index.
         :param list[str] colnames: The column name to be fixed.
         """
-        # NOTE: Due to MySQL driver returning the expression itself
+        # NOTE: Due to the MySQL driver returning the expression itself
         #       as the column name if one was not provided, there is
         #       no way to know whether a name was provided or not.
         return colname
@@ -260,8 +283,8 @@ class MySqlDriver(BaseDriver):
 
 class SqlServerDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to a Microsoft
+    SQL Server database and is used to handle driver-specific issues.
     """
 
     @property
@@ -271,17 +294,16 @@ class SqlServerDriver(BaseDriver):
         """
         return Driver.SQL_SERVER
 
-    def _handle_sql_result_type_impl(self, t: type) -> type:
+    @override
+    def handle_sql_result_type(self, t: type) -> type:
         """
-        Some SQL query results are returned in different formats by certain
-        drivers. This function handles these cases by using custom type wrappers
-        which are capable of mapping sad results to their original type.
+        Maps `bool` types to `OnlymapsBool`.
 
         :param type t: The type that is to be mapped.
         """
         if t is bool:
             return OnlymapsBool
-        return t
+        return super().handle_sql_result_type(t)
 
     @staticmethod
     def std_colname(idx: int, colname: str) -> str:
@@ -297,8 +319,8 @@ class SqlServerDriver(BaseDriver):
 
 class MariaDbDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to a MariaDB
+    database and is used to handle driver-specific issues.
     """
 
     @property
@@ -324,17 +346,16 @@ class MariaDbDriver(BaseDriver):
             case _:
                 return super().handle_sql_param(param)
 
-    def _handle_sql_result_type_impl(self, t: type) -> type:
+    @override
+    def handle_sql_result_type(self, t: type) -> type:
         """
-        Some SQL query results are returned in different formats by certain
-        drivers. This function handles these cases by using custom type wrappers
-        which are capable of mapping sad results to their original type.
+        Maps `bool` types to `OnlymapsBool`.
 
         :param type t: The type that is to be mapped.
         """
         if t is bool:
             return OnlymapsBool
-        return t
+        return super().handle_sql_result_type(t)
 
     @staticmethod
     def std_colname(idx: int, colname: str) -> str:
@@ -348,10 +369,75 @@ class MariaDbDriver(BaseDriver):
         return colname if colname != "?" else f"c{idx}"
 
 
+class OracleDbDriver(BaseDriver):
+    """
+    This class represents the underlying driver to an Oracle
+    database and is used to handle driver-specific issues.
+    """
+
+    @property
+    def tag(self) -> Driver:
+        """
+        The driver's type.
+        """
+        return Driver.ORACLE_DB
+
+    @override
+    def init_connection(self, conn: Any) -> Any:
+        """
+        This function is used to perform any driver-specific
+        initialization logic right after the instantiation of
+        a PyDbAPIv2 connection. Returns the now-initialized
+        connection.
+
+        :param Any conn: A PyDbAPIv2-compatible connection object.
+        """
+
+        def query_param_handler(
+            cursor: oracledb.Cursor, value: Any, num_elements: int
+        ) -> oracledb.Var | None:
+            """
+            Handles certain types of query parameters so that
+            no information is lost.
+            """
+            match value:
+                # Force `BINARY_DOUBLE` TYPE even if the decimal part is zero.
+                case float():
+                    return cursor.var(
+                        oracledb.DB_TYPE_BINARY_DOUBLE, arraysize=num_elements
+                    )
+                # Force `TIMESTAMP` type if datetime has microseconds.
+                case datetime() if value.microsecond > 0:
+                    return cursor.var(
+                        oracledb.DB_TYPE_TIMESTAMP, arraysize=num_elements
+                    )
+            return None
+
+        setattr(conn, "inputtypehandler", query_param_handler)
+        return conn
+
+    @staticmethod
+    def std_colname(idx: int, colname: str) -> str:
+        """
+        Assigns a unique column name to the provided column
+        name if it was not explicitly set by the user.
+
+        :param int idx: The column's index.
+        :param list[str] colnames: The column name to be fixed.
+        """
+        # NOTE: Due to the OracleDB driver returning the expression itself
+        #       as the column name if one was not provided, there is
+        #       no way to know whether a name was provided or not.
+        # NOTE: Since all column names are converted to uppercase by default,
+        #       we should instead convert them back to lowercase as that is
+        #       the most common option for model fields.
+        return colname.lower()
+
+
 class SqlLiteDriver(BaseDriver):
     """
-    This class represents the connection's underlying driver
-    and is used to handle driver-specific issues.
+    This class represents the underlying driver to an SQLite
+    database and is used to handle driver-specific issues.
     """
 
     @property
@@ -361,17 +447,32 @@ class SqlLiteDriver(BaseDriver):
         """
         return Driver.SQL_LITE
 
-    def _handle_sql_result_type_impl(self, t: type) -> type:
+    @override
+    def handle_sql_param(self, param: Any) -> Any:
         """
-        Some SQL query results are returned in different formats by certain
-        drivers. This function handles these cases by using custom type wrappers
-        which are capable of mapping sad results to their original type.
+        Some Python types are not supported by certain drivers. This function
+        handles these cases and maps parameters of these types to a type that
+        is supported.
+
+        :param Any param: An SQL query parameter.
+        """
+        match param:
+            # Sqlite3 driver cannot handle `Decimal` objects.
+            case Decimal():
+                return str(param)
+            case _:
+                return super().handle_sql_param(param)
+
+    @override
+    def handle_sql_result_type(self, t: type) -> type:
+        """
+        Maps `bool` types to `OnlymapsBool`.
 
         :param type t: The type that is to be mapped.
         """
         if t is bool:
             return OnlymapsBool
-        return t
+        return super().handle_sql_result_type(t)
 
     @staticmethod
     def std_colname(idx: int, colname: str) -> str:
@@ -382,7 +483,108 @@ class SqlLiteDriver(BaseDriver):
         :param int idx: The column's index.
         :param list[str] colnames: The column name to be fixed.
         """
+        # NOTE: Due to the DuckDB driver returning the expression itself
+        #       as the column name if one was not provided, there is
+        #       no way to know whether a name was provided or not.
         return colname if colname != "?" else f"c{idx}"
+
+
+class DuckDbDriver(BaseDriver):
+    """
+    This class represents the underlying driver to a DuckDb
+    database and is used to handle driver-specific issues.
+    """
+
+    @property
+    def tag(self) -> Driver:
+        """
+        The driver's type.
+        """
+        return Driver.DUCK_DB
+
+    @override
+    def init_connection(self, conn: Any) -> Any:
+        """
+        This function is used to perform any driver-specific
+        initialization logic right after the instantiation of
+        a PyDbAPIv2 connection. Returns the now-initialized
+        connection.
+
+        :param Any conn: A PyDbAPIv2-compatible connection object.
+
+        :NOTE: Due to the way `DuckDb` works, there is no distinction between
+            a connection and a cursor, with the connection class taking on the
+            responsibility of both. This means that method `cursor` on the connection
+            class actually returns a connection object as well. Seeing that calling
+            `cursor` for every query execution carries some performance overhead,
+            as well as certain issues regarding transaction isolation, this function
+            defines certain classes in order to be able to integrate DuckDb connections
+            with the existing connection/cursor based API without having any issues.
+        """
+
+        class DuckDbCursorWrapper:
+            """
+            This is a wrapper class for the DuckDb connection that
+            is to be handled as a cursor. All member access delegates
+            to the underlying DuckDb connection, except for `close`,
+            which goes on to do nothing, as `cursor.close()` should not
+            result in the DuckDb connection being closed.
+            """
+
+            def __init__(self, conn: Any) -> None:
+                self.__conn = conn
+
+            def __getattr__(self, name: str) -> Any:
+                match name:
+                    case "close":
+                        return lambda: None
+                    case _:
+                        return getattr(self.__conn, name)
+
+        class DuckDbConnectionWrapper:
+            """
+            This is a wrapper class for the DuckDb connection that
+            is to be handled as an actual connection. All member
+            access delegates to the underlying DuckDb connection,
+            except for `cursor`, which goes on to return the underlying
+            connection wrapped within `DuckDbCursorWrapper`.
+            result in the DuckDb connection being closed.
+            """
+
+            def __init__(self, conn: Any) -> None:
+                self.__conn = conn
+
+            def __getattr__(self, name: str) -> Any:
+                match name:
+                    case "cursor":
+                        return lambda: DuckDbCursorWrapper(self.__conn)
+                    case _:
+                        return getattr(self.__conn, name)
+
+        return DuckDbConnectionWrapper(conn)
+
+    @override
+    def init_transaction(self, conn: Any) -> None:
+        """
+        This function is used to perform any driver-specific
+        initialization logic right before the execution of a
+        transaction.
+
+        :param Any conn: A PyDbAPIv2-compatible connection object.
+        """
+        begin: Callable[[], None] = getattr(conn, "begin")
+        begin()
+
+    @staticmethod
+    def std_colname(idx: int, colname: str) -> str:
+        """
+        Assigns a unique column name to the provided column
+        name if it was not explicitly set by the user.
+
+        :param int idx: The column's index.
+        :param list[str] colnames: The column name to be fixed.
+        """
+        return colname
 
 
 class UnknownDriver(BaseDriver):
@@ -404,16 +606,6 @@ class UnknownDriver(BaseDriver):
         Returns an `UnknownDriver` instance.
         """
         return cls(apilevel="2.0", threadsafety=0, paramstyle=ParamStyle.UNKNOWN)
-
-    def _handle_sql_result_type_impl(self, t: type) -> type:
-        """
-        Some SQL query results are returned in different formats by certain
-        drivers. This function handles these cases by using custom type wrappers
-        which are capable of mapping sad results to their original type.
-
-        :param type t: The type that is to be mapped.
-        """
-        return t
 
     @staticmethod
     def std_colname(idx: int, colname: str) -> str:
@@ -451,8 +643,12 @@ def driver_factory(
             factory = SqlServerDriver
         case Driver.MARIA_DB:
             factory = MariaDbDriver
+        case Driver.ORACLE_DB:
+            factory = OracleDbDriver
         case Driver.SQL_LITE:
             factory = SqlLiteDriver
+        case Driver.DUCK_DB:
+            factory = DuckDbDriver
         case Driver.UNKNOWN:  # pragma: no cover
             factory = UnknownDriver
 

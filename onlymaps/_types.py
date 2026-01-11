@@ -7,10 +7,12 @@ This module contains several custom types used to bypass certain driver restrict
 
 import json
 import operator
+import re
 from abc import ABC, abstractmethod
 from dataclasses import Field as DataclassField
 from dataclasses import is_dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from enum import Enum
 from functools import reduce
 from inspect import isclass
@@ -111,7 +113,7 @@ class OnlymapsType(ABC, Generic[T]):
         back to their original type.
 
         :param type t: The type to be mapped.
-        :param ((type) -> (type | type)) | None field_type_mapper: A
+        :param `(type) -> type` | None field_type_mapper: A
             field type mapping function used for custom type handling.
         """
 
@@ -123,29 +125,31 @@ class OnlymapsType(ABC, Generic[T]):
 
         adapter = TypeAdapter(t)
 
-        def map_to_original(obj: Any) -> T:
+        def inverse_map(obj: Any) -> T:
             jsonable = to_jsonable_python(obj)
             return adapter.validate_python(jsonable, strict=False)
 
         if t in CLASS_MAP:
-            return CLASS_MAP[t], map_to_original
+            return CLASS_MAP[t], inverse_map
 
         origin: type = get_origin(t) or t
 
         if isclass(origin) and issubclass(origin, Enum):
-            return OnlymapsEnum.from_enum(origin), map_to_original
+            return OnlymapsEnum.from_enum(origin), inverse_map
 
-        if args := get_args(t):
-            t = cls._parametrize(origin, args, field_type_mapper)
+        args = get_args(t)
 
         if origin is tuple:
-            return OnlymapsTuple.from_args(args, field_type_mapper), map_to_original
+            return OnlymapsTuple.from_args(args, field_type_mapper), inverse_map
         if origin is list:
-            return OnlymapsList.from_args(args, field_type_mapper), map_to_original
+            return OnlymapsList.from_args(args, field_type_mapper), inverse_map
         if origin is set:
-            return OnlymapsSet.from_args(args, field_type_mapper), map_to_original
+            return OnlymapsSet.from_args(args, field_type_mapper), inverse_map
         if origin is dict:
-            return OnlymapsDict.from_args(args, field_type_mapper), map_to_original
+            return OnlymapsDict.from_args(args, field_type_mapper), inverse_map
+
+        if args:
+            t = cls._parametrize(origin, args, field_type_mapper)
 
         return t, lambda x: x
 
@@ -239,6 +243,22 @@ class OnlymapsBool(OnlymapsType[bool]):
         return value
 
 
+class OnlymapsDecimal(OnlymapsType[Decimal]):
+    """
+    This class allows for `str`/`int`/`float` to `decimal.Decimal`
+    conversion.
+    """
+
+    @classmethod
+    def parse_impl(cls, value: Any, *_: type) -> Any:
+        """
+        Parses `int`/`float`/`str` types to `Decimal` objects.
+        """
+        if isinstance(value, (int, float, str)) and not isinstance(value, bool):
+            return Decimal(value)
+        return value
+
+
 class OnlymapsStr(OnlymapsType[str]):
     """
     Converts bytes into strings if utf-8 encodable.
@@ -300,11 +320,15 @@ class OnlymapsDatetime(OnlymapsType[datetime]):
     """
 
     DT_TYPE_ADAPTER = TypeAdapter(datetime, config=ConfigDict(strict=False))
+    RE_NUMBER = re.compile(r"(?:\+|-)?\d+(?:(?:\.|,)\d*)*")
 
     @classmethod
     def parse_impl(cls, value: Any, *_: type) -> Any:
         match value:
-            case str():
+            # NOTE: Only match non-number strings, as a non-strict `TypeAdapter`
+            #       is able to convert simple numbers such as `1` to `datetime`
+            #       objects.
+            case str() if cls.RE_NUMBER.fullmatch(value) is None:
                 return cls.DT_TYPE_ADAPTER.validate_python(value)
             # NOTE: Match for strictly `date`.
             case date() if not isinstance(value, datetime):
@@ -531,6 +555,7 @@ CLASS_MAP: dict[type, type[OnlymapsType]] = {
     # NOTE: Do not include `OnlymapsBool` by default
     #       as many drivers can handle booleans.
     #       Instead, let each driver handle it.
+    Decimal: OnlymapsDecimal,
     str: OnlymapsStr,
     bytes: OnlymapsBytes,
     UUID: OnlymapsUUID,

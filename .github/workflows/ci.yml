@@ -45,7 +45,7 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m coverage run -m pytest -vvv -s
+          python -m coverage run -m pytest
           python -m coverage lcov
 
       - name: Python ${{ matrix.python-version }} Coveralls

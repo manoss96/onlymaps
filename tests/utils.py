@@ -8,6 +8,7 @@ that are to be used for testing purposes.
 
 from dataclasses import is_dataclass, make_dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from enum import IntEnum, StrEnum
 from typing import Any, TypeAlias, Union
 from uuid import UUID
@@ -19,6 +20,7 @@ from pytest import FixtureRequest
 from testcontainers.core.container import DockerContainer
 from testcontainers.mssql import SqlServerContainer
 from testcontainers.mysql import MySqlContainer
+from testcontainers.oracle import OracleDbContainer
 from testcontainers.postgres import PostgresContainer
 
 from onlymaps._drivers import Driver
@@ -35,7 +37,9 @@ DRIVERS = [
     Driver.MY_SQL,
     Driver.MARIA_DB,
     Driver.SQL_SERVER,
+    Driver.ORACLE_DB,
     Driver.SQL_LITE,
+    Driver.DUCK_DB,
     Driver.UNKNOWN,
 ]
 
@@ -60,6 +64,7 @@ SCALAR_TYPE = Union[
     bool,
     int,
     float,
+    Decimal,
     str,
     bytes,
     UUID,
@@ -170,6 +175,7 @@ def _build_values() -> tuple[list[SCALAR_TYPE], list[ROW_TYPE], type[BaseModel]]
         True,
         1,
         1.0,
+        Decimal("1.0"),
         "Hello",
         b"Hello",
         UUID("3d751e08-dd90-4045-b1ee-7cfd392618a6"),
@@ -232,6 +238,14 @@ class SqliteContainer(BaseModel):
     dbname: str
 
 
+class DuckDbContainer(BaseModel):
+    """
+    A pseudo Docker container class for DuckDB.
+    """
+
+    dbname: str
+
+
 # NOTE: Define custom MariaDB container since
 #       it is not supported by TestContainers yet.
 class MariaDbContainer(DockerContainer):
@@ -241,7 +255,7 @@ class MariaDbContainer(DockerContainer):
 
     def __init__(self, image: str, env: dict[str, str]) -> None:
         env["MARIADB_ALLOW_EMPTY_ROOT_PASSWORD"] = "1"
-        super().__init__(image, env=env, volumes=None)
+        super().__init__(image, env=env)
         self.port = 3306
         self.username = env.get("MARIADB_USER")
         self.password = env.get("MARIADB_PASSWORD")
@@ -254,25 +268,49 @@ DbContainer: TypeAlias = (
     | MySqlContainer
     | MariaDbContainer
     | SqlServerContainer
+    | OracleDbContainer
     | SqliteContainer
+    | DuckDbContainer
 )
 
 
-def conn_str_from_container(container: DbContainer) -> str:
+def get_conn_str_and_kwargs_from_container(
+    container: DbContainer,
+) -> tuple[str, dict[str, Any]]:
     """
     Given a database Docker container, constructs and returns
-    a connection string that can be used to connect to said
-    container's database.
+    a tuple containing the following:
+
+    1. A connection string that can be used to connect to said
+        container's database.
+    2. A dictionary containing additional keyword arguments to
+        be passed to the `connect` function.
+
+    :param `DbContainer` container: A Docker container instance.
     """
 
+    kwargs: dict[str, Any] = {"connect_timeout": CONNECT_TIMEOUT}
+
     if isinstance(container, SqliteContainer):
-        return f"{Driver.SQL_LITE}:///{container.dbname}"
+        kwargs |= {
+            # NOTE: Set this to `False` so as to be able to use
+            #       this connection instance in a separate thread
+            #       when connected to an sqlite database.
+            "check_same_thread": False,
+            # NOTE: In the case of Sqlite use an extremely large
+            #       timeout so as not to get a locked database error.
+            #       See: https://docs.python.org/3/library/sqlite3.html#sqlite3.connect
+            "timeout": 10000,
+        }
+        return f"{Driver.SQL_LITE}:///{container.dbname}", kwargs
+    if isinstance(container, DuckDbContainer):
+        return f"{Driver.DUCK_DB}:///{container.dbname}", kwargs
 
     # NOTE: Use `127.0.0.1` instead of `localhost` as some
     #       drivers treat `localhost` as an indication to
     #       establish a connection via a unix socket, which
     #       causes tests to fail for `mariadb` driver in CI.
-    host = "127.0.0.1"
+    host = getattr(container, "host", "127.0.0.1")
     port = container.get_exposed_port(container.port)
     db = container.dbname
     user = container.username
@@ -285,12 +323,14 @@ def conn_str_from_container(container: DbContainer) -> str:
             driver = Driver.MY_SQL
         case MariaDbContainer():
             driver = Driver.MARIA_DB
+        case OracleDbContainer():
+            driver = Driver.ORACLE_DB
         case SqlServerContainer():
             driver = Driver.SQL_SERVER
         case _:  # pragma: no cover
             raise ValueError(f"Invalid container: `{container}`.")
 
-    return f"{driver}://{user}:{password}@{host}:{port}/{db}"
+    return f"{driver}://{user}:{password}@{host}:{port}/{db}", kwargs
 
 
 def get_request_param(request: FixtureRequest) -> Any | None:
@@ -318,25 +358,40 @@ class SQL:
     CREATE_TEST_TABLE = f"CREATE TABLE {TEST_TABLE} (id INT PRIMARY KEY)"
 
     @staticmethod
-    def _placeholder(driver: Driver) -> str:
+    def placeholder(driver: Driver, n: int | None = None) -> str:
         """
         Returns a positional placeholder based on the provided driver.
+
+        :param int | None n: An integer that, if provided, is used in
+            the Oracle DB placeholder.
         """
-        return "?" if driver == Driver.SQL_LITE else "%s"
+        match driver:
+            case Driver.ORACLE_DB:
+                return f":{n if n is not None else 0}"
+            case Driver.SQL_LITE | Driver.DUCK_DB:
+                return "?"
+            case _:
+                return "%s"
 
     @staticmethod
-    def _kw_placeholder(driver: Driver) -> str:
+    def kw_placeholder(driver: Driver, n: int | None = None) -> str:
         """
         Returns a keyword placeholder based on the provided driver.
         """
-        return ":scalar" if driver == Driver.SQL_LITE else "%(scalar)s"
+        match driver:
+            case Driver.ORACLE_DB | Driver.SQL_LITE:
+                return f":scalar{n if n is not None else ''}"
+            case Driver.DUCK_DB:
+                return f"$scalar{n if n is not None else ''}"
+            case _:
+                return f"%(scalar{n if n is not None else ''})s"
 
     @classmethod
     def SELECT_SINGLE_SCALAR(cls, driver: Driver) -> str:
         """
         Query to select a single scalar.
         """
-        placeholder = cls._placeholder(driver)
+        placeholder = cls.placeholder(driver)
         return f"SELECT {placeholder}"
 
     @classmethod
@@ -344,10 +399,9 @@ class SQL:
         """
         Query to select a single row with column names.
         """
-        placeholder = cls._placeholder(driver)
         query = "SELECT "
-        for field_name in RowPydanticModel.model_fields:
-            query += f"{placeholder} AS {field_name},"
+        for i, field_name in enumerate(RowPydanticModel.model_fields):
+            query += f"{cls.placeholder(driver, i)} AS {field_name},"
         return query.removesuffix(",")
 
     @classmethod
@@ -355,7 +409,7 @@ class SQL:
         """
         Query to select multiple scalars.
         """
-        placeholder = cls._kw_placeholder(driver)
+        placeholder = cls.kw_placeholder(driver)
         return f"SELECT {placeholder} UNION ALL SELECT {placeholder}"
 
     @classmethod
@@ -363,12 +417,21 @@ class SQL:
         """
         Query to select multiple rows with column names.
         """
-        placeholder = cls._placeholder(driver)
-        query = "SELECT "
-        for field_name in RowPydanticModel.model_fields:
-            query += f"{placeholder} AS {field_name},"
-        query = query.removesuffix(",")
-        return f"{query} UNION ALL {query}"
+
+        idx = 0
+
+        def build_query() -> str:
+            nonlocal idx
+            query = "SELECT "
+            for field_name in RowPydanticModel.model_fields:
+                query += f"{cls.placeholder(driver, idx)} AS {field_name},"
+                idx += 1
+            return query.removesuffix(",")
+
+        query1 = build_query()
+        query2 = build_query()
+
+        return f"{query1} UNION ALL {query2}"
 
     @classmethod
     def SELECT_SINGLE_ROW_WITH_INT_COL_NAMES(
@@ -378,10 +441,9 @@ class SQL:
         Query to select a single row with column names
         following the `cN` pattern.
         """
-        placeholder = cls._placeholder(driver)
         query = "SELECT "
         for i in range(num_placeholders):
-            query += f"{placeholder} AS c{i},"
+            query += f"{cls.placeholder(driver, i)} AS c{i},"
         return query.removesuffix(",")
 
     @classmethod
@@ -389,7 +451,7 @@ class SQL:
         """
         Query to insert row into the test table.
         """
-        placeholder = cls._placeholder(driver)
+        placeholder = cls.placeholder(driver)
         query = f"INSERT INTO {cls.TEST_TABLE} VALUES ({placeholder})"
         if returning_id:
             assert driver == Driver.POSTGRES
@@ -401,7 +463,7 @@ class SQL:
         """
         Query to select one row from the test table.
         """
-        placeholder = cls._placeholder(driver)
+        placeholder = cls.placeholder(driver)
         return f"SELECT id FROM {cls.TEST_TABLE} WHERE id = {placeholder}"
 
     @classmethod
@@ -409,8 +471,7 @@ class SQL:
         """
         Query to select many rows from the test table.
         """
-        placeholder = cls._placeholder(driver)
-        template = ",".join(placeholder for _ in range(num_elements))
+        template = ",".join(cls.placeholder(driver, i) for i in range(num_elements))
         return f"SELECT id FROM {cls.TEST_TABLE} WHERE id IN ({template})"
 
     @classmethod

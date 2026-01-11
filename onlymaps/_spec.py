@@ -38,7 +38,7 @@ class PyDbAPIv2Cursor(Protocol):
     def execute(  # <async>
         self,
         operation: str,
-        params: dict[str, Any] | Sequence[Any] = ...,
+        params: dict[str, Any] | list[Any] | tuple[Any, ...] = ...,
         /,
         *args: Any,
         **kwargs: Any,
@@ -64,7 +64,9 @@ class PyDbAPIv2Cursor(Protocol):
         See: https://peps.python.org/pep-0249/#fetchmany
         """
 
-    def close(self) -> bool | None:  # <async>
+    def close(
+        self,
+    ) -> bool | None:  # <replace:) -> bool | None | Awaitable[None]:>
         """
         See: https://peps.python.org/pep-0249/#Cursor.close
         """
@@ -82,12 +84,12 @@ class PyDbAPIv2Connection(Protocol):
         See: https://peps.python.org/pep-0249/#Connection.close
         """
 
-    def commit(self) -> None:  # <async>
+    def commit(self) -> Any | None:  # <async>
         """
         See: https://peps.python.org/pep-0249/#commit
         """
 
-    def rollback(self) -> None:  # <async>
+    def rollback(self) -> Any | None:  # <async>
         """
         See: https://peps.python.org/pep-0249/#rollback
         """

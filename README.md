@@ -6,13 +6,13 @@
 ![OnlyMaps Logo](docs/source/onlymaps.png)
 
 
-Onlymaps is a Python micro-ORM library that enables you to interact with a database
-through plain SQL queries while it takes care of mapping the results back to Python
+Onlymaps is a Python micro-ORM library that lets you interact with a database
+through plain SQL while it takes care of mapping any query results back to Python
 objects. More specifically, it provides:
 
 - A minimal API that enables both sync and async query execution.
 - Fine-grained type-hinting and validation with the help of [Pydantic](https://docs.pydantic.dev/latest/).
-- Support for all major databases such as PostgreSQL, MySQL, MariaDB and MS SQL Server.
+- Support for all major databases such as PostgreSQL, MySQL, MariaDB, MS SQL Server and more.
 - Connection pooling via custom implementation.
 
 ## How to install 📦
@@ -56,7 +56,7 @@ with connect("postgresql://user:password@localhost:5432/mydb") as db:
     # Execute queries...
 ```
 
-Similarly, `onlymaps.asyncio.connect` gives access to the `AsyncDatabase` API:
+Similarly, `onlymaps.asyncio.connect` gives access to its async counterpart, namely `AsyncDatabase`:
 
 ```python
 from onlymaps.asyncio import connect
@@ -77,7 +77,7 @@ db.open()
 db.close()
 ```
 
-Since the sync and async APIs are identical, from now on we will be using the sync API for all examples. You only have to remeber that when using the async API, methods must be awaited:
+Since the sync and async APIs are identical, from now on we will be using the sync API for all examples. You only have to remember that when using the async API, methods must be awaited:
 
 ```python
 from onlymaps.asyncio import connect, AsyncDatabase
@@ -103,7 +103,9 @@ The `{DB_TYPE}` placeholder can take any of the following values depending on th
 - `mysql`: MySQL
 - `mssql`: Microsoft SQL Server
 - `mariadb`: MariaDB
-- `sqlite`: SQLite. More specifically, when connecting to a SQLite database, your connection string must be formatted as such: `sqlite:///${DB_NAME}`.
+- `oraceldb`: Oracle Database
+- `sqlite`: SQLite. More specifically, when connecting to a SQLite database, your connection string must be formatted as such: `sqlite:///{DB_NAME}`.
+- `duckdb`: DuckDB. Similarly, when connecting to a DuckDB database, your connection string must be formatted as such: `duckdb:///{DB_NAME}`.
 
 #### Using unsupported drivers
 
@@ -130,7 +132,7 @@ db = connect(conn_factory)
 ```
 
 You only have to remember that, for this to work, the factory function must output connection
-instances that implement the `Connection` interface of the [Python Database API Specification v2.0](https://peps.python.org/pep-0249/).
+instances that implement the `Connection` interface of [Python Database API Specification v2.0](https://peps.python.org/pep-0249/).
 Therefore, as long as a Python database driver package is compatible with the afformentioned protocol,
 you can use it and it will work just fine!
 
@@ -158,7 +160,7 @@ a connection pool with an adequate number of connections, where each thread
 can get its own connection from the pool.
 
 The same is true for the async variants as well. Both the async connection and the
-async connection pool can be considered reentrant, as long as they are not accessed
+async connection pool can be considered concurrency-safe, as long as they are not accessed
 outside the event loop in which they were created. When it comes to their performance,
 connection pooling is again the right choice for a heavily concurrent application,
 for example an ASGI web server.
@@ -199,9 +201,8 @@ class User(BaseModel):
 users: list[User] = db.fetch_many(User, "SELECT name, age FROM users")
 ```
 
-Even though the above example uses a pydantic model, you are not required to use one.
-In fact, you can use any type you like as long as it matches the query result you are
-expecting:
+Even though the above example uses a Pydantic model, you are not required to use one.
+In fact, you can use any type you like as long as it matches the result you are expecting:
 
 ```python
 users: list[tuple[str, int]] = db.fetch_many(tuple[str, int], "SELECT name, age FROM users")
@@ -254,7 +255,7 @@ you should use, you can take a look at the documentation of the driver you are u
 
 #### Query parameter wrappers
 
-Onlymaps does some parameter handling by default when it makes sense to do so. To give an example, `UUID` and `pydantic.BaseModel` type instances are always converted into strings when provided as query parameters, as this is the only type conversion that makes sense in this context. However, there exist certain cases where it is not so obvious how a parameter is meant to be used. Consider the following example:
+Onlymaps does some parameter handling by default when it makes sense to do so. To give an example, `uuid.UUID` and `pydantic.BaseModel` type instances are always converted into strings when provided as query parameters, as this is the only type conversion that makes sense in this context. However, there exist certain cases where it is not so obvious how a parameter is meant to be used. Consider the following example:
 
 ```python
 ids = [1, 2, 3, 4, 5]
@@ -283,7 +284,8 @@ db.exec("INSERT INTO my_table (col_a, col_b) VALUES (%s, %s)", Json(ids), Json(k
 Both `ids` and `kv_pairs` are converted into JSON-compatible strings, which are then inserted
 into the table columns `col_a` and `col_b` respectively.
 
-Other than `Json`, there exists one more parameter wrapper class, namely `Bulk`, which in turn indicates that the provided argument is to be executed as part of a bulk statement:
+Other than `Json`, there exists one more parameter wrapper class, namely `Bulk`, which in turn indicates
+that the provided argument is to be executed as part of a bulk statement:
 
 ```python
 from onlymaps import Bulk
@@ -315,8 +317,8 @@ exits successfully, all changes are persisted.
 
 ### Mapping query results
 
-In order to understand how rows are mapped to Python objects, we should first
-make the distinction of querying a single column versus querying multiple columns.
+In order to better understand how rows are mapped to Python objects, it is crucial
+that we make the distinction between querying a single column and querying multiple columns.
 
 ##### Single-column queries
 
@@ -338,7 +340,7 @@ class JsonColumn(BaseModel):
     label: str
     metadata: str | None = None
 
-json_rows: list[JsonColumn] = db.fetch_many(JsonColumn, "SELECT json_col FROM my_table")
+json_cols: list[JsonColumn] = db.fetch_many(JsonColumn, "SELECT json_col FROM my_table")
 ```
 
 In general, when querying a single column, the following types are supported:
@@ -346,6 +348,7 @@ In general, when querying a single column, the following types are supported:
 - `bool`
 - `int`
 - `float`
+- `decimal.Decimal`
 - `str`
 - `bytes`
 - `uuid.UUID`
@@ -368,7 +371,7 @@ should always be some sorts of struct type which is able to contain more than on
 type of data:
 
 ```python
-ids: list[tuple] = db.fetch_many(tuple, "SELECT id, label FROM my_table")
+rows: list[tuple] = db.fetch_many(tuple, "SELECT id, label FROM my_table")
 ```
 
 The complete list of types supported when querying multiple columns is as follows:
@@ -384,7 +387,7 @@ The complete list of types supported when querying multiple columns is as follow
 This  above list of struct types can be further separated into two distinct categories:
 
 - Container types: `tuple`, `list`, `set`.
-- Model types: `dict`, `dataclasses.dataclass`, `pydantic.dataclasses.dataclass`, `pydanticBaseModel`
+- Model types: `dict`, `dataclasses.dataclass`, `pydantic.dataclasses.dataclass`, `pydantic.BaseModel`
 
 When using a container type, you lose all information regarding the column names.
 If you wish to retain that, you should use a model type:
@@ -392,7 +395,7 @@ If you wish to retain that, you should use a model type:
 ```python
 rows: list[dict] = db.fetch_many(dict, "SELECT id, label FROM my_table")
 
-print(rows.keys()) # This prints `dict_keys(['id', 'label'])`.
+print(rows[0].keys()) # This prints `dict_keys(['id', 'label'])`.
 ```
 
 You can use whichever suits you best, as both container types and
@@ -402,14 +405,14 @@ type of values you are expecting:
 ```python
 
 # This works!
-ids1 = db.fetch_many(tuple[int, str], "SELECT id, label FROM my_table")
+rows1 = db.fetch_many(tuple[int, str], "SELECT id, label FROM my_table")
 
 # And this works!
-ids2 = db.fetch_many(dict[str, int | str], "SELECT id, label FROM my_table")
+rows2 = db.fetch_many(dict[str, int | str], "SELECT id, label FROM my_table")
 
 # But these two raise a `TypeError`.
-ids3 = db.fetch_many(tuple[int, int], "SELECT id, label FROM my_table")
-ids4 = db.fetch_many(dict[str, int], "SELECT id, label FROM my_table")
+rows3 = db.fetch_many(tuple[int, int], "SELECT id, label FROM my_table")
+rows4 = db.fetch_many(dict[str, int], "SELECT id, label FROM my_table")
 ```
 
 

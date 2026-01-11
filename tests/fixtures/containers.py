@@ -8,21 +8,25 @@ a database via a Docker container.
 
 import gc
 import os
+import re
 import sqlite3
 from time import sleep
 from typing import Iterator
 from uuid import uuid4
 
+import duckdb
 import pytest
 from pytest import FixtureRequest
 from testcontainers.mssql import SqlServerContainer
 from testcontainers.mysql import MySqlContainer
+from testcontainers.oracle import OracleDbContainer
 from testcontainers.postgres import PostgresContainer
 
 from onlymaps._drivers import Driver
 from tests.utils import (
     SQL,
     DbContainer,
+    DuckDbContainer,
     MariaDbContainer,
     SqliteContainer,
     get_request_param,
@@ -109,6 +113,62 @@ def sql_server_container() -> Iterator[SqlServerContainer]:
 
 
 @pytest.fixture(scope="session")
+def oracledb_container() -> Iterator[OracleDbContainer]:
+    """
+    A fixture used to set up an OracleDB Docker container.
+    """
+
+    with OracleDbContainer(image="gvenzl/oracle-free:slim") as oracledb:
+
+        conn_str = oracledb.get_connection_url()
+
+        m = re.fullmatch(
+            r"oracle\+oracledb://(.+):(.+)@.+/\?service_name=(.+)", conn_str
+        )
+        assert m is not None
+
+        username, password, dbname = m.groups()
+
+        # NOTE: Increase the number of processes and restart the database.
+        #       Do this due to an error that sometimes occurs during opening
+        #       a new connection:
+        #
+        #       oracledb.exceptions.OperationalError:
+        #           DPY-6005: cannot connect to database (CONNECTION_ID=3uxZaUf0IUknsi7pokzdtg==).
+        #           DPY-6000: Listener refused connection. (Similar to ORA-12516)
+        oracledb.exec(
+            [
+                "bash",
+                "-c",
+                (
+                    "echo 'ALTER SYSTEM SET processes=500 SCOPE=spfile;' | sqlplus / as sysdba"
+                    " && echo 'SHUTDOWN IMMEDIATE' | sqlplus / as sysdba"
+                    " && echo 'STARTUP' | sqlplus / as sysdba"
+                ),
+            ]
+        )
+
+        # Create any necessary tables.
+        oracledb.exec(
+            [
+                "bash",
+                "-c",
+                (
+                    f"echo '{SQL.CREATE_TEST_TABLE};' | "
+                    "sqlplus -s "
+                    f"{username}/{password}@{dbname}"
+                ),
+            ]
+        )
+
+        oracledb.username = username
+        oracledb.password = password
+        oracledb.dbname = dbname
+
+        yield oracledb
+
+
+@pytest.fixture(scope="session")
 def sqlite_container() -> Iterator[SqliteContainer]:
     """
     A fixture used to set up a pseudo SQLite container.
@@ -127,6 +187,18 @@ def sqlite_container() -> Iterator[SqliteContainer]:
     gc.collect()
 
     os.remove(db)
+
+
+@pytest.fixture(scope="session")
+def duckdb_container() -> Iterator[DuckDbContainer]:
+
+    # NOTE: Use special name `:memory:` to create an in-memory database.
+    #       See: https://duckdb.org/docs/stable/clients/python/dbapi#in-memory-connection
+    db = ":memory:testdb"
+
+    with duckdb.connect(database=db) as conn:
+        conn.execute(SQL.CREATE_TEST_TABLE)
+        yield DuckDbContainer(dbname=db)
 
 
 @pytest.fixture(scope="function")
@@ -148,8 +220,12 @@ def db_container(request: FixtureRequest) -> DbContainer:
             container = "sql_server_container"
         case Driver.MARIA_DB:
             container = "mariadb_container"
+        case Driver.ORACLE_DB:
+            container = "oracledb_container"
         case Driver.SQL_LITE:
             container = "sqlite_container"
+        case Driver.DUCK_DB:
+            container = "duckdb_container"
         case _:  # pragma: no cover
             raise ValueError(f"Invalid driver: `{param}`")
 

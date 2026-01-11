@@ -38,7 +38,9 @@ if TYPE_CHECKING:
 
     import aiomysql
     import aiosqlite
+    import duckdb
     import mariadb
+    import oracledb
     import psycopg
     import pymssql
     import pymysql
@@ -102,9 +104,24 @@ class Error:
     )
     PoolIteratorNotAllowed = RuntimeError("Nested iterations are not allowed.")
 
+    @staticmethod
+    def create_async_not_supported_error(
+        name: str,
+    ) -> NotImplementedError:  # pragma: no cover
+        """
+        Returns a `NotImplementedError` with an appropriate message.
+
+        :param str name: The name of the database for which async query execution
+            is not yet supported.
+        """
+        return NotImplementedError(f"Async is not currently supported for {name}.")
+
 
 _RE_CONN_STR = re.compile(
-    r"^(?:sqlite:///(\S+)|([a-z]+)://(?:(\S+?)(?::(\S+?))?@)?([\w\.]+):(\d+)(?:/(\S+)))$"
+    r"^(?:(?:([a-z]+)://"
+    "|"
+    r"([a-z]+)://(?:(\S+?)(?::(\S+?))?@)?([\w\.]+):(\d+))"
+    r"(?:/(\S+)))$"
 )
 
 
@@ -179,10 +196,14 @@ def decompose_conn_str(conn_str: str) -> ConnInfo:
     """
     if m := _RE_CONN_STR.match(conn_str):
 
-        sqlite_db, driver, user, password, host, port, db = m.groups()
+        db_only_driver, driver, user, password, host, port, db = m.groups()
 
-        if sqlite_db:
-            return (Driver.SQL_LITE, "", 0, sqlite_db, "", "")
+        if db_only_driver:
+            driver = db_only_driver
+            host = ""
+            port = 0
+            user = ""
+            password = ""
 
         try:
             driver = Driver(driver)
@@ -341,6 +362,27 @@ def get_pydbapiv2_conn_factory_and_driver(
                 "autocommit": False,
             }
 
+        case Driver.ORACLE_DB:
+
+            if TYPE_CHECKING:
+                module = oracledb
+            else:
+                module = try_import_module("oracledb")
+
+            if "tcp_connect_timeout" in kwargs:
+                raise ValueError(
+                    "Please use argument `connect_timeout` instead of `tcp_connect_timeout`."
+                )
+
+            kwargs |= {
+                "host": host,
+                "port": port,
+                "service_name": database,
+                "user": user,
+                "password": password,
+                "tcp_connect_timeout": connect_timeout,
+            }
+
         case Driver.SQL_LITE:
 
             if TYPE_CHECKING:
@@ -356,6 +398,15 @@ def get_pydbapiv2_conn_factory_and_driver(
                 "check_same_thread": kwargs.pop("check_same_thread", not pooling),
                 "isolation_level": "DEFERRED",
             }
+
+        case Driver.DUCK_DB:
+
+            if TYPE_CHECKING:
+                module = duckdb
+            else:
+                module = try_import_module("duckdb")
+
+            kwargs |= {"database": database}
 
     conn_factory: PyDbAPIv2ConnectionFactory = partial(module.connect, **kwargs)
     driver_instance = driver_factory(
@@ -402,7 +453,7 @@ def get_async_pydbapiv2_conn_factory_and_driver(
 
     (driver, host, port, database, user, password) = decompose_conn_str(conn_str)
 
-    module: "AsyncPyDbAPIv2Module"  # type: ignore
+    module: "AsyncPyDbAPIv2Module"
 
     match driver:
         case Driver.POSTGRES:
@@ -452,10 +503,29 @@ def get_async_pydbapiv2_conn_factory_and_driver(
                 "autocommit": False,
             }
 
-        case Driver.SQL_SERVER:
-            raise NotImplementedError(  # pragma: no cover
-                "Async is not currently supported for MS SQL Server."
-            )
+        case Driver.ORACLE_DB:
+
+            if TYPE_CHECKING:
+                _oracledb = oracledb
+            else:
+                _oracledb = try_import_module("oracledb")
+
+            if "tcp_connect_timeout" in kwargs:
+                raise ValueError(
+                    "Please use argument `connect_timeout` instead of `tcp_connect_timeout`."
+                )
+
+            setattr(_oracledb, "connect", _oracledb.connect_async)
+            module = cast("AsyncPyDbAPIv2Module", _oracledb)
+
+            kwargs |= {
+                "host": host,
+                "port": port,
+                "service_name": database,
+                "user": user,
+                "password": password,
+                "tcp_connect_timeout": connect_timeout,
+            }
 
         case Driver.SQL_LITE:
 
@@ -476,6 +546,12 @@ def get_async_pydbapiv2_conn_factory_and_driver(
                 "check_same_thread": kwargs.pop("check_same_thread", not pooling),
                 "isolation_level": "DEFERRED",
             }
+
+        case Driver.SQL_SERVER:  # pragma: no cover
+            raise Error.create_async_not_supported_error("MS SQL Server")
+
+        case Driver.DUCK_DB:  # pragma: no cover
+            raise Error.create_async_not_supported_error("DuckDB")
 
         case Driver.UNKNOWN:  # pragma: no cover
             raise ValueError(f"Unknown driver: `{driver}`")

@@ -23,7 +23,7 @@ from tests.utils import (
     POOL_WAIT_TIMEOUT,
     DbContainer,
     SqliteContainer,
-    conn_str_from_container,
+    get_conn_str_and_kwargs_from_container,
     get_request_param,
 )
 
@@ -38,18 +38,9 @@ def connection(  # <async>
 
     param = get_request_param(request)
 
-    conn = Connection.from_conn_str(
-        conn_str_from_container(db_container),
-        connect_timeout=CONNECT_TIMEOUT,
-        **(
-            # NOTE: Set this to `False` so as to be able to use
-            # this connection instance in a separate thread
-            # when connected to an sqlite database.
-            {"check_same_thread": False}
-            if isinstance(db_container, SqliteContainer)
-            else {}
-        ),
-    )
+    conn_str, kwargs = get_conn_str_and_kwargs_from_container(db_container)
+
+    conn = Connection.from_conn_str(conn_str, **kwargs)
 
     if param == Driver.UNKNOWN:
         conn_factory = getattr(conn, "_Connection__conn_factory")
@@ -73,27 +64,21 @@ def pool(  # <async>
 
     driver = get_request_param(request)
 
-    kwargs: dict[str, Any] = {
+    conn_str, kwargs = get_conn_str_and_kwargs_from_container(db_container)
+
+    pool_kwargs: dict[str, Any] = {
         "min_pool_size": MIN_POOL_SIZE,
         "max_pool_size": MAX_POOL_SIZE,
         "wait_timeout": POOL_WAIT_TIMEOUT,
     }
 
-    # NOTE: In the case of Sqlite use an extremely large
-    #       timeout so as not to get a locked database error.
-    #       See: https://docs.python.org/3/library/sqlite3.html#sqlite3.connect
-    if driver == Driver.SQL_LITE:
-        kwargs["timeout"] = 10000
-
-    conn = ConnectionPool.from_conn_str(
-        conn_str_from_container(db_container), connect_timeout=CONNECT_TIMEOUT, **kwargs
-    )
+    conn = ConnectionPool.from_conn_str(conn_str, **pool_kwargs, **kwargs)
 
     if driver == Driver.UNKNOWN:
         conn_factory: PyDbAPIv2ConnectionFactory = getattr(
             conn, "_ConnectionPool__conn_factory"
         )
-        conn = ConnectionPool(conn_factory, **kwargs)
+        conn = ConnectionPool(conn_factory, **pool_kwargs)
 
     conn.open()  # <await>
 

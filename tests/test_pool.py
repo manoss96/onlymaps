@@ -20,8 +20,8 @@ from tests.fixtures.connections import big_pool, connection, pool, small_pool
 from tests.fixtures.executors import Executor
 from tests.utils import DRIVERS, MAX_POOL_SIZE, SQL
 
-# NOTE: Do not incude SQL Server for async tests.
-# <include:DRIVERS = [d for d in DRIVERS if d != Driver.SQL_SERVER]>
+# NOTE: Exclude certain drivers from async tests.
+# <include:DRIVERS = [d for d in DRIVERS if d not in {Driver.SQL_SERVER, Driver.DUCK_DB}]>
 
 
 @pytest.mark.parametrize("pool", DRIVERS, indirect=True)
@@ -132,7 +132,7 @@ class TestConnectionPool:  # <replace:class TestAsyncConnectionPool:>
 
         assert exc_info.value == Error.PoolIteratorNotAllowed
 
-    def test_connection_pool_on_multuple_iter_allowed(  # <async>
+    def test_connection_pool_on_multiple_iter_allowed(  # <async>
         self, pool: ConnectionPool, executor: Executor
     ) -> None:
         """
@@ -194,12 +194,15 @@ class TestConnectionPool:  # <replace:class TestAsyncConnectionPool:>
 
 @pytest.mark.parametrize(
     "small_pool",
-    # NOTE: Do not test on `sql_sever` and `sql_lite` as there is not
-    #       an easy way to implicitly force the DB to close the connection
+    # NOTE: Do not test on certain drivers as there is not
+    #       an easy way to either explicitly or implicitly
+    #       force the DB to close the connection from within
+    #       the same connection.
     [
         driver
         for driver in DRIVERS
-        if driver not in {Driver.SQL_SERVER, Driver.SQL_LITE}
+        if driver
+        not in {Driver.SQL_SERVER, Driver.ORACLE_DB, Driver.SQL_LITE, Driver.DUCK_DB}
     ],
     indirect=True,
 )

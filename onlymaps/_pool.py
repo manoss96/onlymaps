@@ -282,10 +282,10 @@ class ConnectionPool:
         Executes the given SQL query.
 
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -295,7 +295,7 @@ class ConnectionPool:
     @require_open
     def fetch_one_or_none(  # <async>
         self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
-    ) -> T | None:
+    ) -> T | Any | None:
         """
         Executes the query and returns a single row object of type `T`,
         if the query resulted in such object, else returns `None`.
@@ -303,10 +303,10 @@ class ConnectionPool:
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -316,17 +316,17 @@ class ConnectionPool:
     @require_open
     def fetch_one(  # <async>
         self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
-    ) -> T:
+    ) -> T | Any:
         """
         Executes the query and returns a single row object of type `T`.
 
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises ValueError: No row object was found to return.
         :raises RuntimeError: Connection is not open.
@@ -337,17 +337,17 @@ class ConnectionPool:
     @require_open
     def fetch_many(  # <async>
         self, t: type[T] | EllipsisType, sql: str, /, *args: Any, **kwargs: Any
-    ) -> list[T]:
+    ) -> list[T] | list[Any]:
         """
         Executes the query and returns a a list of row objects of type `T`.
 
         :param `T` | ellipsis t: The type to which the query result is mapped.
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
@@ -363,7 +363,7 @@ class ConnectionPool:
         /,
         *args: Any,
         **kwargs: Any,
-    ) -> Iterator[Iterator[list[T]]]:  # <async>  # <async>
+    ) -> Iterator[Iterator[list[T]] | Iterator[list[Any]]]:  # <async>
         """
         Executes the query and returns an iterator on batches of row objects
         of type `T`. Each batch of rows is loaded into memory during the
@@ -377,10 +377,10 @@ class ConnectionPool:
             If an `ellipsis` is provided, then no type check/cast occurs.
         :param int size: The number of rows each batch contains.
         :param str sql: The SQL query to be executed.
-        :param tuple[Any, ...] params: A tuple containing positional
-            parameters for the query.
-        :param dict[str, Any] kwparams: A dictionary containing keyword
-            parameters for the query.
+        :param Any *args: A sequence of positional arguments to be used
+            as query parameters.
+        :param Any **kwargs: A sequence of keyword arguments to be used
+            as query parameters.
 
         :raises RuntimeError: Connection is not open.
         """
